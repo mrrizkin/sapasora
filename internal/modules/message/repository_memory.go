@@ -16,18 +16,19 @@ import (
 type InMemoryRepository struct {
 	mu sync.RWMutex
 
-	nextMessageID    uint64
-	nextAttachmentID uint64
-	nextDeliveryID   uint64
-	nextEventID      uint64
-	messages         map[uint64]*Message
-	messageByKey     map[string]uint64
-	idempotencyByKey map[string]uint64
-	attachments      map[uint64]*MessageAttachment
-	attachmentByKey  map[string]uint64
-	deliveries       map[uint64]*DeliveryRecord
-	deliveryByKey    map[string]uint64
-	events           map[string][]*MessageEvent
+	nextMessageID      uint64
+	nextAttachmentID   uint64
+	nextDeliveryID     uint64
+	nextEventID        uint64
+	messages           map[uint64]*Message
+	messageByKey       map[string]uint64
+	idempotencyByKey   map[string]uint64
+	attachments        map[uint64]*MessageAttachment
+	attachmentByKey    map[string]uint64
+	deliveries         map[uint64]*DeliveryRecord
+	deliveryByKey      map[string]uint64
+	events             map[string][]*MessageEvent
+	providerEventByKey map[string]*MessageEvent
 }
 
 var _ Repository = (*InMemoryRepository)(nil)
@@ -37,18 +38,19 @@ type InMemoryMessageRepository = InMemoryRepository
 
 func NewInMemoryRepository() *InMemoryRepository {
 	return &InMemoryRepository{
-		nextMessageID:    1,
-		nextAttachmentID: 1,
-		nextDeliveryID:   1,
-		nextEventID:      1,
-		messages:         make(map[uint64]*Message),
-		messageByKey:     make(map[string]uint64),
-		idempotencyByKey: make(map[string]uint64),
-		attachments:      make(map[uint64]*MessageAttachment),
-		attachmentByKey:  make(map[string]uint64),
-		deliveries:       make(map[uint64]*DeliveryRecord),
-		deliveryByKey:    make(map[string]uint64),
-		events:           make(map[string][]*MessageEvent),
+		nextMessageID:      1,
+		nextAttachmentID:   1,
+		nextDeliveryID:     1,
+		nextEventID:        1,
+		messages:           make(map[uint64]*Message),
+		messageByKey:       make(map[string]uint64),
+		idempotencyByKey:   make(map[string]uint64),
+		attachments:        make(map[uint64]*MessageAttachment),
+		attachmentByKey:    make(map[string]uint64),
+		deliveries:         make(map[uint64]*DeliveryRecord),
+		deliveryByKey:      make(map[string]uint64),
+		events:             make(map[string][]*MessageEvent),
+		providerEventByKey: make(map[string]*MessageEvent),
 	}
 }
 
@@ -90,6 +92,9 @@ func (r *InMemoryRepository) ensureInitializedLocked() {
 	}
 	if r.events == nil {
 		r.events = make(map[string][]*MessageEvent)
+	}
+	if r.providerEventByKey == nil {
+		r.providerEventByKey = make(map[string]*MessageEvent)
 	}
 }
 
@@ -281,6 +286,9 @@ func (r *InMemoryRepository) UpdateMessage(ctx context.Context, value *Message) 
 	}
 	if stored.PublicID != candidate.PublicID {
 		return ErrMessageConflict
+	}
+	if candidate.Status != stored.Status {
+		return fmt.Errorf("%w: status changes must use TransitionMessage", ErrInvalidMessage)
 	}
 	if stored.IdempotencyKey != candidate.IdempotencyKey {
 		if candidate.IdempotencyKey != "" {
@@ -534,6 +542,9 @@ func (r *InMemoryRepository) AppendMessageEvent(ctx context.Context, value *Mess
 		candidate.RecordedAt = time.Now().UTC()
 	}
 	candidate.RedactedProviderMetadata = redactMetadata(candidate.RedactedProviderMetadata)
+	if candidate.Source == "" {
+		candidate.Source = MessageEventSourcePlatform
+	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -551,11 +562,129 @@ func (r *InMemoryRepository) AppendMessageEvent(ctx context.Context, value *Mess
 	if err := candidate.Valid(); err != nil {
 		return err
 	}
+	if candidate.Source == MessageEventSourceProvider && candidate.ProviderEventID != "" {
+		providerKey := providerStatusKey(candidate.ScopeID(), candidate.MessagePublicID, candidate.ProviderEventID)
+		if existing, exists := r.providerEventByKey[providerKey]; exists {
+			*value = *cloneEvent(existing)
+			return nil
+		}
+	}
 	candidate.ID = r.nextEventID
 	r.nextEventID++
 	r.events[key] = append(r.events[key], candidate)
+	if candidate.Source == MessageEventSourceProvider && candidate.ProviderEventID != "" {
+		r.providerEventByKey[providerStatusKey(candidate.ScopeID(), candidate.MessagePublicID, candidate.ProviderEventID)] = candidate
+	}
 	*value = *cloneEvent(candidate)
 	return nil
+}
+
+// TransitionMessage validates and atomically applies one lifecycle transition
+// and appends its immutable event. The repository lock covers validation,
+// mutation, sequencing, and provider-event deduplication as one operation.
+func (r *InMemoryRepository) TransitionMessage(ctx context.Context, tenantID, messagePublicID string, transition MessageTransition) (*MessageEvent, error) {
+	if err := repositoryContextError(ctx); err != nil {
+		return nil, err
+	}
+	tenantID, messagePublicID = strings.TrimSpace(tenantID), strings.TrimSpace(messagePublicID)
+	if tenantID == "" || messagePublicID == "" {
+		return nil, fmt.Errorf("%w: tenant and message ids are required", ErrInvalidMessage)
+	}
+	if transition.Target == "" || !transition.Target.Valid() {
+		return nil, &InvalidTransitionError{From: MessageStatusUnknown, To: transition.Target}
+	}
+	if transition.Source == "" {
+		transition.Source = MessageEventSourcePlatform
+	}
+	if !transition.Source.Valid() {
+		return nil, fmt.Errorf("%w: invalid event source %q", ErrInvalidMessageEvent, transition.Source)
+	}
+	if err := validateBoundedReference(transition.ProviderEventID, "provider event id", 256); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidMessageEvent, err)
+	}
+	if err := validateBoundedReference(transition.ProviderMessageID, "provider message id", 256); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidMessageEvent, err)
+	}
+	if err := validateBoundedReference(transition.RequestID, "request id", 256); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidMessageEvent, err)
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ensureInitializedLocked()
+	messageID, ok := r.activeMessageIDLocked(tenantID, messagePublicID)
+	if !ok {
+		return nil, ErrMessageNotFound
+	}
+	message := r.messages[messageID]
+	if transition.Source == MessageEventSourceProvider && transition.ProviderEventID != "" {
+		providerKey := providerStatusKey(tenantID, messagePublicID, transition.ProviderEventID)
+		if existing, exists := r.providerEventByKey[providerKey]; exists {
+			return cloneEvent(existing), nil
+		}
+	}
+
+	// Provider acceptance is an external observation, not a platform
+	// lifecycle transition. Record it even when a delayed provider event
+	// arrives after the platform has moved on (or reached a terminal state),
+	// but never move the platform lifecycle backwards to accepted.
+	changesState := true
+	if transition.Source == MessageEventSourceProvider && transition.Target == MessageStatusAccepted {
+		changesState = false
+	} else if err := ValidateTransition(message.Status, transition.Target); err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC()
+	occurredAt := transition.OccurredAt
+	if occurredAt.IsZero() {
+		occurredAt = now
+	}
+	event := &MessageEvent{
+		TenantID: tenantID, WorkspaceID: tenantID, MessageID: messageID,
+		MessagePublicID: messagePublicID, Type: messageEventType(transition.Target),
+		Status: transition.Target, Source: transition.Source,
+		ProviderEventID: transition.ProviderEventID, ProviderMessageID: transition.ProviderMessageID,
+		RequestID: transition.RequestID, RedactedProviderMetadata: redactMetadata(transition.Metadata),
+		OccurredAt: occurredAt, RecordedAt: now,
+	}
+	key := scopedKey(tenantID, messagePublicID)
+	event.Sequence = uint64(len(r.events[key]) + 1)
+	if strings.TrimSpace(event.PublicID) == "" {
+		event.PublicID = hash.NanoID(21)
+	}
+	if err := event.Valid(); err != nil {
+		return nil, err
+	}
+	event.ID = r.nextEventID
+	r.nextEventID++
+	r.events[key] = append(r.events[key], event)
+	if event.Source == MessageEventSourceProvider && event.ProviderEventID != "" {
+		r.providerEventByKey[providerStatusKey(tenantID, messagePublicID, event.ProviderEventID)] = event
+	}
+	if changesState {
+		message.Status = transition.Target
+		message.UpdatedAt = now
+	}
+	if transition.ProviderMessageID != "" {
+		message.ProviderMessageID = transition.ProviderMessageID
+		message.UpdatedAt = now
+	}
+	return cloneEvent(event), nil
+}
+
+// RecordProviderStatusEvent records a provider observation through the same
+// atomic transition and deduplication path as other transitions.
+func (r *InMemoryRepository) RecordProviderStatusEvent(ctx context.Context, tenantID, messagePublicID string, status ProviderStatusEvent) (*MessageEvent, error) {
+	providerEventID := status.ProviderEventID
+	if providerEventID == "" {
+		providerEventID = status.EventID
+	}
+	return r.TransitionMessage(ctx, tenantID, messagePublicID, MessageTransition{
+		Target: status.Status, Source: MessageEventSourceProvider,
+		ProviderEventID: providerEventID, ProviderMessageID: status.ProviderMessageID,
+		Metadata: status.Metadata, OccurredAt: status.OccurredAt,
+	})
 }
 
 func (r *InMemoryRepository) ListMessageEvents(ctx context.Context, tenantID, messagePublicID string) ([]*MessageEvent, error) {
@@ -574,6 +703,37 @@ func (r *InMemoryRepository) ListMessageEvents(ctx context.Context, tenantID, me
 		result = append(result, cloneEvent(event))
 	}
 	return result, nil
+}
+
+func providerStatusKey(scope, messagePublicID, providerEventID string) string {
+	return scopedKey(scopedKey(scope, messagePublicID), providerEventID)
+}
+
+func messageEventType(status MessageStatus) MessageEventType {
+	switch status {
+	case MessageStatusAccepted:
+		return MessageEventAccepted
+	case MessageStatusQueued:
+		return MessageEventQueued
+	case MessageStatusSending:
+		return MessageEventSending
+	case MessageStatusSent:
+		return MessageEventSent
+	case MessageStatusDelivered:
+		return MessageEventDelivered
+	case MessageStatusRead:
+		return MessageEventRead
+	case MessageStatusFailed:
+		return MessageEventFailed
+	case MessageStatusRetrying:
+		return MessageEventRetrying
+	case MessageStatusDeadLetter:
+		return MessageEventDeadLetter
+	case MessageStatusCanceled:
+		return MessageEventCanceled
+	default:
+		return ""
+	}
 }
 
 func (r *InMemoryRepository) activeMessageIDLocked(scope, publicID string) (uint64, bool) {

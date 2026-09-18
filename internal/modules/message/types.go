@@ -28,8 +28,7 @@ func (d MessageDirection) Valid() bool {
 
 func (d MessageDirection) String() string { return string(d) }
 
-// MessageStatus is a stored observation, not a state-machine transition API.
-// Transition validation belongs to Track 7.2.
+// MessageStatus is the provider-neutral lifecycle state of a logical message.
 type MessageStatus string
 
 const (
@@ -417,6 +416,65 @@ func (d DeliveryRecord) MarshalJSON() ([]byte, error) {
 // MessageDelivery is the aggregate-qualified name for a delivery record.
 type MessageDelivery = DeliveryRecord
 
+// MessageEventSource identifies which boundary accepted or observed a status.
+// Platform acceptance is the Sapasora lifecycle acceptance; provider
+// acceptance is an external observation and is never treated as platform
+// acceptance merely because both use the accepted status.
+type MessageEventSource string
+
+const (
+	MessageEventSourcePlatform MessageEventSource = "platform"
+	MessageEventSourceProvider MessageEventSource = "provider"
+
+	EventSourcePlatform = MessageEventSourcePlatform
+	EventSourceProvider = MessageEventSourceProvider
+
+	AcceptanceSourcePlatform = MessageEventSourcePlatform
+	AcceptanceSourceProvider = MessageEventSourceProvider
+	PlatformAcceptance       = MessageEventSourcePlatform
+	ProviderAcceptance       = MessageEventSourceProvider
+)
+
+func (s MessageEventSource) Valid() bool {
+	return s == MessageEventSourcePlatform || s == MessageEventSourceProvider
+}
+
+// MessageTransition is an atomic state transition request. ProviderEventID
+// makes provider status delivery idempotent without exposing the opaque ID in
+// diagnostics.
+type MessageTransition struct {
+	Target            MessageStatus
+	Source            MessageEventSource
+	ProviderEventID   string
+	ProviderMessageID string
+	RequestID         string
+	Metadata          map[string]string
+	OccurredAt        time.Time
+}
+
+// TransitionRequest is a descriptive alias for MessageTransition.
+type TransitionRequest = MessageTransition
+
+func (t MessageTransition) String() string {
+	return fmt.Sprintf("MessageTransition{target=%s source=%s provider_message_present=%t}", t.Target, t.Source, t.ProviderMessageID != "")
+}
+
+// ProviderStatusEvent is the input shape for a provider status observation.
+type ProviderStatusEvent struct {
+	Status MessageStatus
+	// EventID is accepted as a concise input alias. ProviderEventID takes
+	// precedence when both are supplied.
+	EventID           string
+	ProviderEventID   string
+	ProviderMessageID string
+	Metadata          map[string]string
+	OccurredAt        time.Time
+}
+
+func (e ProviderStatusEvent) String() string {
+	return fmt.Sprintf("ProviderStatusEvent{status=%s provider_message_present=%t}", e.Status, e.ProviderMessageID != "")
+}
+
 // MessageEvent is immutable history for a logical message. Append-only
 // storage is enforced by the repository API, which has no update/delete path.
 type MessageEvent struct {
@@ -425,20 +483,23 @@ type MessageEvent struct {
 	TenantID    string `json:"-"`
 	WorkspaceID string `json:"-"`
 
-	MessageID                uint64            `json:"-"`
-	MessagePublicID          string            `json:"message_id"`
-	Sequence                 uint64            `json:"sequence"`
-	Type                     MessageEventType  `json:"type"`
-	Status                   MessageStatus     `json:"status,omitempty"`
-	ProviderMessageID        string            `json:"-"`
-	RequestID                string            `json:"-"`
-	RedactedProviderMetadata map[string]string `json:"-"`
-	OccurredAt               time.Time         `json:"occurred_at"`
-	RecordedAt               time.Time         `json:"recorded_at"`
+	MessageID                uint64             `json:"-"`
+	MessagePublicID          string             `json:"message_id"`
+	Sequence                 uint64             `json:"sequence"`
+	Type                     MessageEventType   `json:"type"`
+	Status                   MessageStatus      `json:"status,omitempty"`
+	Source                   MessageEventSource `json:"source"`
+	ProviderEventID          string             `json:"-"`
+	ProviderMessageID        string             `json:"-"`
+	RequestID                string             `json:"-"`
+	RedactedProviderMetadata map[string]string  `json:"-"`
+	OccurredAt               time.Time          `json:"occurred_at"`
+	RecordedAt               time.Time          `json:"recorded_at"`
 }
 
-// MessageEventType names an immutable observation. It does not define valid
-// state transitions; that is intentionally deferred to Track 7.2.
+// MessageEventType names an immutable observation. Transition events are
+// created by the state-machine repository operation; generic append remains
+// available for provider-neutral history ingestion.
 type MessageEventType string
 
 const (
@@ -497,10 +558,16 @@ func (e MessageEvent) Valid() error {
 	if !e.Type.Valid() {
 		return fmt.Errorf("%w: invalid event type %q", ErrInvalidMessageEvent, e.Type)
 	}
+	if e.Source != "" && !e.Source.Valid() {
+		return fmt.Errorf("%w: invalid event source %q", ErrInvalidMessageEvent, e.Source)
+	}
 	if e.Status != "" && e.Status != MessageStatusUnknown && !e.Status.Valid() {
 		return fmt.Errorf("%w: invalid event status %q", ErrInvalidMessageEvent, e.Status)
 	}
 	if err := validateBoundedReference(e.MessagePublicID, "message public id", 256); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidMessageEvent, err)
+	}
+	if err := validateBoundedReference(e.ProviderEventID, "provider event id", 256); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalidMessageEvent, err)
 	}
 	if err := validateBoundedReference(e.ProviderMessageID, "provider message id", 256); err != nil {
@@ -516,19 +583,20 @@ func (e MessageEvent) Valid() error {
 }
 
 func (e MessageEvent) String() string {
-	return fmt.Sprintf("MessageEvent{id=%s message_id=%s sequence=%d type=%s status=%s}", e.PublicID, e.MessagePublicID, e.Sequence, e.Type, e.Status)
+	return fmt.Sprintf("MessageEvent{id=%s message_id=%s sequence=%d type=%s status=%s source=%s}", e.PublicID, e.MessagePublicID, e.Sequence, e.Type, e.Status, e.Source)
 }
 
 func (e MessageEvent) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		ID         string           `json:"id"`
-		MessageID  string           `json:"message_id"`
-		Sequence   uint64           `json:"sequence"`
-		Type       MessageEventType `json:"type"`
-		Status     MessageStatus    `json:"status,omitempty"`
-		OccurredAt time.Time        `json:"occurred_at"`
-		RecordedAt time.Time        `json:"recorded_at"`
-	}{e.PublicID, e.MessagePublicID, e.Sequence, e.Type, e.Status, e.OccurredAt, e.RecordedAt})
+		ID         string             `json:"id"`
+		MessageID  string             `json:"message_id"`
+		Sequence   uint64             `json:"sequence"`
+		Type       MessageEventType   `json:"type"`
+		Status     MessageStatus      `json:"status,omitempty"`
+		Source     MessageEventSource `json:"source"`
+		OccurredAt time.Time          `json:"occurred_at"`
+		RecordedAt time.Time          `json:"recorded_at"`
+	}{e.PublicID, e.MessagePublicID, e.Sequence, e.Type, e.Status, e.Source, e.OccurredAt, e.RecordedAt})
 }
 
 func validateScope(tenantID, workspaceID string) (string, error) {

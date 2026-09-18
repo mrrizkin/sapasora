@@ -14,8 +14,9 @@ type MessageFilter struct {
 	ProviderMessageID    *string
 }
 
-// Repository is the persistence boundary for Track 7.1. It intentionally has
-// no provider send methods, API types, or state transition operations.
+// Repository is the persistence boundary for the provider-neutral message
+// domain. It has no provider send methods, API types, or transport wiring;
+// lifecycle transitions are exposed only through the validated operations below.
 type Repository interface {
 	CreateMessage(context.Context, *Message) error
 	GetMessageByPublicID(context.Context, string, string) (*Message, error)
@@ -34,6 +35,11 @@ type Repository interface {
 	ListDeliveryRecords(context.Context, string, string) ([]*DeliveryRecord, error)
 
 	AppendMessageEvent(context.Context, *MessageEvent) error
+	// TransitionMessage validates and atomically applies a platform or provider
+	// status transition while appending one immutable event. Provider events
+	// with the same scoped ProviderEventID are idempotent.
+	TransitionMessage(context.Context, string, string, MessageTransition) (*MessageEvent, error)
+	RecordProviderStatusEvent(context.Context, string, string, ProviderStatusEvent) (*MessageEvent, error)
 	ListMessageEvents(context.Context, string, string) ([]*MessageEvent, error)
 }
 
