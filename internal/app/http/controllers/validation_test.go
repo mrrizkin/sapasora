@@ -22,6 +22,25 @@ func TestValidationHelpersUseDefaultValidatorWhenControllerIsUnwired(t *testing.
 	require.Empty(t, controller.Validate(controllerValidationPayload{Name: "valid"}))
 }
 
+func TestPublicIDParamRejectsUnsafePathValues(t *testing.T) {
+	controller := &Controller{}
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app.Get("/:id", func(ctx *fiber.Ctx) error {
+		if _, err := controller.PublicIDParam(ctx); err != nil {
+			return err
+		}
+		return ctx.SendStatus(http.StatusNoContent)
+	})
+
+	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/valid-id_123", nil))
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNoContent, response.StatusCode)
+
+	response, err = app.Test(httptest.NewRequest(http.MethodGet, "/not.valid", nil))
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, response.StatusCode)
+}
+
 func TestBodyParserValidateMapsMalformedPayloadTo422(t *testing.T) {
 	controller := &Controller{}
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})

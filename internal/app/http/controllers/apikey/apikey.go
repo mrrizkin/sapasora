@@ -52,8 +52,12 @@ func (c *APIKeyController) List(ctx *fiber.Ctx) error {
 
 	gate.AuthorizeAllPermissions(subject)
 
-	page := ctx.QueryInt("page", 1)
-	limit := ctx.QueryInt("limit", 10)
+	params, err := c.ParseListQuery(ctx)
+	if err != nil {
+		return err
+	}
+	page := params.Page
+	limit := params.Limit
 
 	apikeyList, err := c.apikeyService.ListAPIKey(ctx.Context(), page, limit)
 	if err != nil {
@@ -73,7 +77,10 @@ func (c *APIKeyController) List(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/api-key/{id} [get]
 func (c *APIKeyController) Get(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	subject, err := c.GetSubject(ctx, "account")
 	if err != nil {
 		return err
@@ -161,7 +168,10 @@ func (c *APIKeyController) Store(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/api-key/{id} [put]
 func (c *APIKeyController) Update(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	var payload APIKeyUpdateRequest
 	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
@@ -207,7 +217,10 @@ func (c *APIKeyController) Update(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/api-key/{id} [delete]
 func (c *APIKeyController) Destroy(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	subject, err := c.GetSubject(ctx, "account")
 	if err != nil {
 		return err

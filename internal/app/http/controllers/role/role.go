@@ -52,9 +52,13 @@ func (c *RoleController) List(ctx *fiber.Ctx) error {
 
 	gate.AuthorizeAllPermissions(subject)
 
-	page := ctx.QueryInt("page", 1)
-	limit := ctx.QueryInt("limit", 10)
-	search := ctx.Query("search")
+	params, err := c.ParseListQuery(ctx)
+	if err != nil {
+		return err
+	}
+	page := params.Page
+	limit := params.Limit
+	search := params.Search
 
 	roleList, err := c.roleService.ListRole(ctx.Context(), search, page, limit)
 	if err != nil {
@@ -74,7 +78,10 @@ func (c *RoleController) List(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/role/{id} [get]
 func (c *RoleController) Get(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	role, err := c.roleService.GetRoleByPublicID(ctx.Context(), id)
 	if err != nil {
 		return err
@@ -146,7 +153,10 @@ func (c *RoleController) Store(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/role/{id} [put]
 func (c *RoleController) Update(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	var payload RoleUpdateRequest
 	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
@@ -189,7 +199,10 @@ func (c *RoleController) Update(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/role/{id}/permissions [put]
 func (c *RoleController) UpdatePermissions(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 
 	var payload RoleUpdatePermissionsRequest
 	if err := c.BodyParserValidate(ctx, &payload); err != nil {
@@ -231,7 +244,10 @@ func (c *RoleController) UpdatePermissions(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/role/{id} [delete]
 func (c *RoleController) Destroy(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	role, err := c.roleService.GetRoleByPublicID(ctx.Context(), id)
 	if err != nil {
 		return err

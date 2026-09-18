@@ -5,11 +5,61 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
+
+const (
+	DefaultPage     = 1
+	DefaultLimit    = 10
+	MaxLimit        = 100
+	MaxFilterLength = 255
+)
+
+var publicIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,255}$`)
+
+// PaginationParams contains the bounded pagination contract shared by list endpoints.
+type PaginationParams struct {
+	Page  int `query:"page,default=1"`
+	Limit int `query:"limit,default=10"`
+}
+
+// ListQueryParams contains pagination and the common search filter used by list endpoints.
+type ListQueryParams struct {
+	PaginationParams
+	Search string `query:"search"`
+}
+
+// ParseListQueryParams parses and validates the common list query contract.
+func ParseListQueryParams(c *fiber.Ctx) (ListQueryParams, error) {
+	var params ListQueryParams
+	if err := ParseQueryParams(c, &params); err != nil {
+		return params, fiber.NewError(fiber.StatusBadRequest, "invalid query parameter")
+	}
+	if params.Page < 1 {
+		return params, fiber.NewError(fiber.StatusBadRequest, "page must be at least 1")
+	}
+	if params.Limit < 1 || params.Limit > MaxLimit {
+		return params, fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("limit must be between 1 and %d", MaxLimit))
+	}
+	if len(params.Search) > MaxFilterLength {
+		return params, fiber.NewError(fiber.StatusBadRequest, "search is too long")
+	}
+	return params, nil
+}
+
+// ValidatePublicID validates an external ID before it reaches a service or query.
+// IDs are URL-safe public references; the generated NanoID is a stricter subset
+// of this compatibility-preserving shape.
+func ValidatePublicID(publicID string) error {
+	if !publicIDPattern.MatchString(publicID) {
+		return errors.New("invalid public ID")
+	}
+	return nil
+}
 
 // ParseQueryParams parses query parameters into a struct with support for nested and embedded types
 func ParseQueryParams(c *fiber.Ctx, dest any) error {
@@ -102,13 +152,15 @@ func handleTaggedField(
 		return err
 	}
 
-	// Apply default value if needed
-	if paramValue == "" && tagInfo.defaultValue != "" {
+	// Apply defaults only when the parameter is absent. An explicitly empty
+	// numeric value is malformed and must not silently become the default.
+	if paramValue == "" && tagInfo.defaultValue != "" && !hasQueryParam(c, paramName) {
 		paramValue = tagInfo.defaultValue
 	}
 
-	// Skip if no value to set
-	if paramValue == "" {
+	// Skip only when the parameter is absent. An explicitly empty value must
+	// still be parsed so numeric fields reject it instead of defaulting.
+	if paramValue == "" && !hasQueryParam(c, paramName) {
 		return nil
 	}
 
@@ -186,6 +238,11 @@ func validateRequired(paramValue string, tagInfo QueryTagInfo, paramName string)
 		return fmt.Errorf("missing required query parameter: %s", paramName)
 	}
 	return nil
+}
+
+func hasQueryParam(c *fiber.Ctx, name string) bool {
+	_, ok := c.Queries()[name]
+	return ok
 }
 
 // hasNestedParams checks if any query parameters exist for a nested struct
