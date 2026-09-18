@@ -1,4 +1,4 @@
-# Contact domain foundation and CRUD boundary (Tracks 5.1–5.2)
+# Contact domain foundation and CRUD boundary (Tracks 5.1–5.3)
 
 `internal/modules/contact` is the additive, provider-neutral foundation for
 contacts and contact identities.
@@ -39,3 +39,22 @@ HTTP responses. This track does **not** add controllers, routes, provider
 adapters, consent enforcement, database migrations/tables, or DI/module
 registration. Durable adapters must preserve the tenant-scoped public-ID and
 normalized identity uniqueness constraints atomically.
+
+## Track 5.3 CSV import/export foundation
+
+`import_export.go` provides bounded, transport-neutral CSV streams through
+`ImportCSV` and `ExportCSV` (or their importer/exporter wrappers). Both APIs
+require an explicit tenant ID. Import validates the exact `CSVHeader` schema,
+limits rows and field bytes, normalizes addresses through `NormalizeAddress`,
+reports duplicate identities by row/field, and supports dry-run validation
+without repository writes. Export writes tenant-scoped contacts and normalized
+address values directly to an `io.Writer`; contacts without addresses remain
+representable as rows with empty address columns.
+
+CSV issue/error diagnostics contain only row numbers, field names, and stable
+codes. Raw or normalized contact values are never included in errors or logs.
+The current repository interface lists contacts before streaming their rows, so
+HTTP/storage integrations must still apply request/body limits and choose job
+or transaction behavior. HTTP upload/download routes, authorization and
+export permission checks, async jobs, XLSX/mapping support, audit events, and
+expiring URLs remain outside this module.
