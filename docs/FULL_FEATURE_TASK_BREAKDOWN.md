@@ -177,9 +177,9 @@
 - [x] Fail fast untuk secret/provider config wajib.
 - [x] Validasi duration seperti `CACHE_TTL` dengan unit yang eksplisit.
 - [x] Tambahkan config schema test untuk valid dan invalid environment.
-- [ ] Tambahkan migration transaction policy.
-- [ ] Tambahkan PostgreSQL advisory lock/migration lock.
-- [ ] Dokumentasikan migration rollback.
+- [x] Tambahkan migration transaction policy.
+- [x] Tambahkan PostgreSQL advisory lock/migration lock.
+- [x] Dokumentasikan migration rollback.
 - [x] Tambahkan server read timeout.
 - [x] Tambahkan write timeout.
 - [x] Tambahkan idle timeout.

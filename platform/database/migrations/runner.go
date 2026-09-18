@@ -1,10 +1,10 @@
 package migrations
 
 import (
+	"fmt"
 	"sapasora/platform/database"
 	"sapasora/platform/support/arr"
 	"sapasora/platform/support/console"
-	"fmt"
 	"slices"
 	"sort"
 	"strconv"
@@ -68,7 +68,28 @@ func (mr *MigrationRunner) Register(name string, migration Migration) {
 	})
 }
 
+const migrationLockKey = "sapasora:migrations"
+
 func (mr *MigrationRunner) Run() error {
+	return mr.withMigrationLock(mr.runLocked)
+}
+
+func (mr *MigrationRunner) withMigrationLock(run func() error) error {
+	if mr.db.Name() != "postgres" {
+		return run()
+	}
+	if err := mr.db.Exec("SELECT pg_advisory_lock(hashtext(?))", migrationLockKey).Error; err != nil {
+		return fmt.Errorf("failed to acquire migration lock: %w", err)
+	}
+	defer func() {
+		if err := mr.db.Exec("SELECT pg_advisory_unlock(hashtext(?))", migrationLockKey).Error; err != nil {
+			console.Error("failed to release migration lock: %v", err)
+		}
+	}()
+	return run()
+}
+
+func (mr *MigrationRunner) runLocked() error {
 	if err := mr.ensureMigrationsTable(); err != nil {
 		return fmt.Errorf("failed to ensure migrations table: %w", err)
 	}
@@ -102,9 +123,15 @@ func (mr *MigrationRunner) Run() error {
 
 		console.Info("Running migration: %s", migrationEntry.Name)
 
-		schema := NewSchema(mr.db)
+		tx := mr.db.Begin()
+		if tx.Error != nil {
+			return fmt.Errorf("failed to begin migration %s: %w", migrationEntry.Name, tx.Error)
+		}
+		txDB := &database.Database{DB: tx}
+		schema := NewSchema(txDB)
 
 		if err := migrationEntry.Migration.Up(schema); err != nil {
+			tx.Rollback()
 			return fmt.Errorf("migration %s failed: %w", migrationEntry.Name, err)
 		}
 
@@ -114,8 +141,12 @@ func (mr *MigrationRunner) Run() error {
 			CreatedAt: time.Now(),
 		}
 
-		if err := mr.db.Create(&record).Error; err != nil {
+		if err := tx.Create(&record).Error; err != nil {
+			tx.Rollback()
 			return fmt.Errorf("failed to record migration %s: %w", migrationEntry.Name, err)
+		}
+		if err := tx.Commit().Error; err != nil {
+			return fmt.Errorf("failed to commit migration %s: %w", migrationEntry.Name, err)
 		}
 
 		console.Info("Migration %s completed successfully", migrationEntry.Name)
