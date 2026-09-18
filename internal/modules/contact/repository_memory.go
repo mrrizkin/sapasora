@@ -21,6 +21,10 @@ type InMemoryContactRepository struct {
 	nextAddressID      uint64
 	nextConsentEventID uint64
 	nextSuppressionID  uint64
+	nextStaticListID   uint64
+	nextSegmentID      uint64
+	nextExclusionID    uint64
+	nextSnapshotID     uint64
 	contacts           map[uint64]*Contact
 	contactByKey       map[string]uint64
 	addresses          map[uint64]*ContactAddress
@@ -28,6 +32,14 @@ type InMemoryContactRepository struct {
 	identityIndex      map[string]uint64
 	consentEvents      map[uint64][]*ConsentEvent
 	suppressions       map[uint64]*SuppressionRecord
+	staticLists        map[uint64]*StaticList
+	staticListByKey    map[string]uint64
+	segments           map[uint64]*DynamicSegment
+	segmentByKey       map[string]uint64
+	exclusionLists     map[uint64]*ExclusionList
+	exclusionByKey     map[string]uint64
+	snapshots          map[uint64]*AudienceSnapshot
+	snapshotByKey      map[string]uint64
 }
 
 var _ ContactRepository = (*InMemoryContactRepository)(nil)
@@ -41,6 +53,10 @@ func NewInMemoryContactRepository() *InMemoryContactRepository {
 		nextAddressID:      1,
 		nextConsentEventID: 1,
 		nextSuppressionID:  1,
+		nextStaticListID:   1,
+		nextSegmentID:      1,
+		nextExclusionID:    1,
+		nextSnapshotID:     1,
 		contacts:           make(map[uint64]*Contact),
 		contactByKey:       make(map[string]uint64),
 		addresses:          make(map[uint64]*ContactAddress),
@@ -48,6 +64,14 @@ func NewInMemoryContactRepository() *InMemoryContactRepository {
 		identityIndex:      make(map[string]uint64),
 		consentEvents:      make(map[uint64][]*ConsentEvent),
 		suppressions:       make(map[uint64]*SuppressionRecord),
+		staticLists:        make(map[uint64]*StaticList),
+		staticListByKey:    make(map[string]uint64),
+		segments:           make(map[uint64]*DynamicSegment),
+		segmentByKey:       make(map[string]uint64),
+		exclusionLists:     make(map[uint64]*ExclusionList),
+		exclusionByKey:     make(map[string]uint64),
+		snapshots:          make(map[uint64]*AudienceSnapshot),
+		snapshotByKey:      make(map[string]uint64),
 	}
 }
 
@@ -65,6 +89,18 @@ func (r *InMemoryContactRepository) ensureInitializedLocked() {
 	}
 	if r.nextSuppressionID == 0 {
 		r.nextSuppressionID = 1
+	}
+	if r.nextStaticListID == 0 {
+		r.nextStaticListID = 1
+	}
+	if r.nextSegmentID == 0 {
+		r.nextSegmentID = 1
+	}
+	if r.nextExclusionID == 0 {
+		r.nextExclusionID = 1
+	}
+	if r.nextSnapshotID == 0 {
+		r.nextSnapshotID = 1
 	}
 	if r.contacts == nil {
 		r.contacts = make(map[uint64]*Contact)
@@ -86,6 +122,30 @@ func (r *InMemoryContactRepository) ensureInitializedLocked() {
 	}
 	if r.suppressions == nil {
 		r.suppressions = make(map[uint64]*SuppressionRecord)
+	}
+	if r.staticLists == nil {
+		r.staticLists = make(map[uint64]*StaticList)
+	}
+	if r.staticListByKey == nil {
+		r.staticListByKey = make(map[string]uint64)
+	}
+	if r.segments == nil {
+		r.segments = make(map[uint64]*DynamicSegment)
+	}
+	if r.segmentByKey == nil {
+		r.segmentByKey = make(map[string]uint64)
+	}
+	if r.exclusionLists == nil {
+		r.exclusionLists = make(map[uint64]*ExclusionList)
+	}
+	if r.exclusionByKey == nil {
+		r.exclusionByKey = make(map[string]uint64)
+	}
+	if r.snapshots == nil {
+		r.snapshots = make(map[uint64]*AudienceSnapshot)
+	}
+	if r.snapshotByKey == nil {
+		r.snapshotByKey = make(map[string]uint64)
 	}
 }
 

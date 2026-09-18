@@ -689,18 +689,18 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 
 ## P5.5 Segment dan audience
 
-- [ ] Buat static list.
-- [ ] Buat dynamic segment.
-- [ ] Filter berdasarkan field.
-- [ ] Filter berdasarkan tag.
+- [x] Buat static list.
+- [x] Buat dynamic segment.
+- [x] Filter berdasarkan field.
+- [x] Filter berdasarkan tag.
 - [ ] Filter berdasarkan event.
 - [ ] Filter berdasarkan delivery status.
 - [ ] Filter berdasarkan interaction time.
-- [ ] Preview segment count.
-- [ ] Simpan audience snapshot.
-- [ ] Simpan exclusion list.
-- [ ] Revalidate suppression sebelum send.
-- [ ] Test segment query tenant isolation.
+- [x] Preview segment count.
+- [x] Simpan audience snapshot.
+- [x] Simpan exclusion list.
+- [x] Revalidate suppression sebelum send.
+- [x] Test segment query tenant isolation.
 
 ## P5.6 Duplicate and identity
 
