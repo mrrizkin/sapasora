@@ -18,7 +18,6 @@ import (
 )
 
 const (
-	startupConcurrency    = 4
 	reconnectMaxAttempts  = 3
 	reconnectInitialDelay = time.Second
 	reconnectMaxDelay     = 5 * time.Second
@@ -31,14 +30,15 @@ type TDLib struct {
 
 	deviceService device.DeviceService
 
-	startupMu        sync.RWMutex
-	lastStartupError error
-	startupWG        sync.WaitGroup
-	connectWG        sync.WaitGroup
-	lifecycleMu      sync.Mutex
-	stopping         bool
-	stopStartup      context.CancelFunc
-	metrics          *providerstartup.LifecycleMetrics
+	startupMu          sync.RWMutex
+	lastStartupError   error
+	startupWG          sync.WaitGroup
+	startupConcurrency int
+	connectWG          sync.WaitGroup
+	lifecycleMu        sync.Mutex
+	stopping           bool
+	stopStartup        context.CancelFunc
+	metrics            *providerstartup.LifecycleMetrics
 }
 
 // NewTDLib creates a new TDLib instance
@@ -55,9 +55,10 @@ func NewTDLib(
 		log:         log,
 		config:      cfg,
 
-		deviceService: deviceService,
-		stopStartup:   cancel,
-		metrics:       providerstartup.NewLifecycleMetrics(),
+		deviceService:      deviceService,
+		startupConcurrency: cfg.GetInt("provider.startup_concurrency", providerstartup.DefaultStartupConcurrency),
+		stopStartup:        cancel,
+		metrics:            providerstartup.NewLifecycleMetrics(),
 	}
 
 	lc.Append(fx.Hook{
@@ -87,7 +88,7 @@ func (t *TDLib) ConnectDevices(ctx context.Context) {
 		return
 	}
 
-	providerstartup.Run(ctx, devices, startupConcurrency,
+	providerstartup.Run(ctx, devices, t.startupConcurrency,
 		func(ctx context.Context, d *device.Device) error {
 			return t.connect(ctx, d, true)
 		},

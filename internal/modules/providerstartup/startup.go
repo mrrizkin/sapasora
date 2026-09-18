@@ -10,6 +10,8 @@ import (
 	"sapasora/internal/modules/device"
 )
 
+const DefaultStartupConcurrency = 4
+
 // StartFunc starts one provider device. A failure is reported per device and
 // does not stop the remaining startup tasks.
 type StartFunc func(context.Context, *device.Device) error
@@ -116,6 +118,9 @@ func Run(
 		go func() {
 			defer workers.Done()
 			for d := range jobs {
+				if ctx.Err() != nil {
+					return
+				}
 				if err := start(ctx, d); err != nil && onError != nil {
 					onError(d, err)
 				}

@@ -28,6 +28,7 @@ const device = reactive<Partial<DeviceFormSchema>>({
   name: props.device?.name,
   type: props.device?.type,
   webhook: props.device?.webhook,
+  auto_connect: props.device?.auto_connect ?? false,
 });
 
 // Inertia form for submission
@@ -90,6 +91,17 @@ async function onSubmit(event: FormSubmitEvent<DeviceFormSchema>) {
           placeholder="Select device type"
           :disabled="inertiaForm.processing"
           :ui="{ base: 'w-[300px]' }" />
+      </UFormField>
+
+      <USeparator />
+
+      <!-- Startup behavior -->
+      <UFormField
+        name="auto_connect"
+        label="Connect on startup"
+        description="Reconnect this device automatically when the application starts"
+        class="flex items-start justify-between gap-4 max-sm:flex-col">
+        <UCheckbox v-model="device.auto_connect" :disabled="inertiaForm.processing" />
       </UFormField>
 
       <USeparator />

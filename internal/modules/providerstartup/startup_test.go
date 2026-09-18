@@ -98,6 +98,22 @@ func TestRunIsolatesOneProviderFailure(t *testing.T) {
 	}
 }
 
+func TestRunDoesNotStartQueuedDevicesAfterCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	started := 0
+	Run(ctx, []*device.Device{{PublicID: "skipped"}}, 1,
+		func(_ context.Context, _ *device.Device) error {
+			started++
+			return nil
+		}, nil)
+
+	if started != 0 {
+		t.Fatalf("started = %d, want 0 after cancellation", started)
+	}
+}
+
 func TestRunBoundsConcurrentStartup(t *testing.T) {
 	devices := make([]*device.Device, 8)
 	for i := range devices {

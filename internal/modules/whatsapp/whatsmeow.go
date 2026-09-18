@@ -44,7 +44,6 @@ func NewDeviceInfoFromDevice(device *device.Device) *WhatsmeowDeviceInfo {
 }
 
 const (
-	startupConcurrency    = 4
 	reconnectMaxAttempts  = 3
 	reconnectInitialDelay = time.Second
 	reconnectMaxDelay     = 5 * time.Second
@@ -56,11 +55,12 @@ type Whatsmeow struct {
 	deviceInfoStore *Store[*WhatsmeowDeviceInfo]
 	killchannel     *Store[(chan bool)]
 
-	lifecycleMu sync.Mutex
-	clientWG    sync.WaitGroup
-	startupWG   sync.WaitGroup
-	startupSem  chan struct{}
-	stopStartup context.CancelFunc
+	lifecycleMu        sync.Mutex
+	clientWG           sync.WaitGroup
+	startupWG          sync.WaitGroup
+	startupConcurrency int
+	startupSem         chan struct{}
+	stopStartup        context.CancelFunc
 
 	startupMu        sync.RWMutex
 	lastStartupError error
@@ -110,15 +110,16 @@ func NewWhatsmeow(
 		clientHTTP:      NewStore[*resty.Client](),
 		deviceInfoStore: NewStore[*WhatsmeowDeviceInfo](),
 		killchannel:     NewStore[(chan bool)](),
-		startupSem:      make(chan struct{}, startupConcurrency),
 
 		container: container,
 		log:       logger.Scope("whatsmeow"),
 
-		deviceService: deviceService,
-		stopStartup:   stopStartup,
-		metrics:       providerstartup.NewLifecycleMetrics(),
+		deviceService:      deviceService,
+		startupConcurrency: config.GetInt("provider.startup_concurrency", providerstartup.DefaultStartupConcurrency),
+		stopStartup:        stopStartup,
+		metrics:            providerstartup.NewLifecycleMetrics(),
 	}
+	w.startupSem = make(chan struct{}, w.startupConcurrency)
 
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
@@ -147,7 +148,7 @@ func (w *Whatsmeow) ConnectDevices(ctx context.Context) {
 		return
 	}
 
-	providerstartup.Run(ctx, devices, startupConcurrency,
+	providerstartup.Run(ctx, devices, w.startupConcurrency,
 		func(ctx context.Context, d *device.Device) error {
 			w.log.Info("Connect to Whatsmeow on startup", "device", d.Name)
 

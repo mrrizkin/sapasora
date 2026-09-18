@@ -275,6 +275,7 @@ func (c *DeviceController) Store(ctx *fiber.Ctx) error {
 		Name:        payload.Name,
 		Type:        payload.Type,
 		Status:      devicemodule.DeviceStatusInactive,
+		AutoConnect: payload.AutoConnect,
 		UserID:      ownerID,
 		Events:      payload.Events,
 		ExpiredAt:   payload.ExpiredAt,
@@ -359,6 +360,9 @@ func (c *DeviceController) Update(ctx *fiber.Ctx) error {
 	device.Name = payload.Name
 	device.Type = payload.Type
 	device.Webhook = payload.Webhook
+	if payload.AutoConnect != nil {
+		device.AutoConnect = *payload.AutoConnect
+	}
 	device.Events = payload.Events
 	device.ExpiredAt = payload.ExpiredAt
 	device.Permissions = payload.Permissions

@@ -15,6 +15,7 @@ type DeviceStoreRequest struct {
 	Name        string                 `json:"name"`
 	Type        device.DeviceType      `json:"type"`
 	Webhook     nihil.NilString        `json:"webhook"`
+	AutoConnect bool                   `json:"auto_connect"`
 	Events      nihil.NilString        `json:"events"`
 	ExpiredAt   nihil.NilTime          `json:"expired_at"`
 	UserID      string                 `json:"user_id"`
@@ -25,6 +26,7 @@ type DeviceUpdateRequest struct {
 	Name        string                 `json:"name"`
 	Type        device.DeviceType      `json:"type"`
 	Webhook     nihil.NilString        `json:"webhook"`
+	AutoConnect *bool                  `json:"auto_connect"`
 	Events      nihil.NilString        `json:"events"`
 	ExpiredAt   nihil.NilTime          `json:"expired_at"`
 	UserID      string                 `json:"user_id"`

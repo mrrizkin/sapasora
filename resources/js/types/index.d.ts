@@ -23,6 +23,7 @@ export interface Device {
   jid: string;
   qr_code: string;
   status: string;
+  auto_connect: boolean;
   events: string;
   user: User;
 }

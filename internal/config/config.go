@@ -20,6 +20,7 @@ func NewAppConfig(cfg config.Config) (config.Config, error) {
 		{name: "inertia", target: &Inertia{}},
 		{name: "mail", target: &Mail{}},
 		{name: "pubsub", target: &Pubsub{}},
+		{name: "provider", target: &Provider{}},
 		{name: "scheduler", target: &Scheduler{}},
 		{name: "security", target: &Security{}},
 		{name: "server", target: &Server{}},
@@ -32,6 +33,10 @@ func NewAppConfig(cfg config.Config) (config.Config, error) {
 		if err := cfg.LoadStruct(item.name, item.target); err != nil {
 			return nil, fmt.Errorf("load %s config: %w", item.name, err)
 		}
+	}
+
+	if cfg.GetInt("provider.startup_concurrency") < 1 {
+		return nil, fmt.Errorf("provider startup concurrency must be at least 1")
 	}
 
 	return cfg, nil

@@ -158,7 +158,7 @@
 
 ## T0.9 Startup dan lifecycle provider
 
-- [ ] Hubungkan hanya device yang `auto_connect = true`.
+- [x] Hubungkan hanya device yang `auto_connect = true`.
 - [x] Filter status aktif.
 - [x] Filter credential belum expired.
 - [x] Skip soft-deleted device.
@@ -188,7 +188,7 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 - [x] Tambahkan idle timeout.
 - [x] Tambahkan request body limit.
 - [x] Tambahkan media upload limit.
-- [ ] Tambahkan bounded concurrency provider.
+- [x] Tambahkan bounded concurrency provider.
 - [x] Sanitasi error response production.
 - [x] Jangan mengembalikan `err.Error()` internal secara langsung.
 - [x] Redact webhook URL, SQL values, credential, PII, dan message body dari log.

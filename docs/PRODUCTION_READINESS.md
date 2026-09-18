@@ -642,7 +642,7 @@ Buat lifecycle service transactional: revoke credential, disconnect provider, st
 
 **Lokasi:** `internal/modules/device/repository.go`
 
-`GetAllWhatsappDevices` dan `GetAllTelegramDevices` hanya memfilter `type`. Tidak ada filter status aktif, expiry, atau flag auto-connect.
+`GetAllWhatsappDevices` dan `GetAllTelegramDevices` harus menerapkan filter startup yang sama: type, status aktif, expiry, soft delete, dan opt-in `auto_connect`.
 
 ### Dampak
 
@@ -650,7 +650,7 @@ Device inactive, expired, atau yang seharusnya tidak auto-connect dapat dibuat a
 
 ### Rekomendasi
 
-Schema saat ini belum memiliki kolom `auto_connect`, sehingga implementasi startup tidak mengarang atau mengasumsikan flag tersebut. Untuk subset T0.9 yang aman, query startup hanya memakai status `active`, `deleted_at IS NULL`, dan `expired_at` device yang belum lewat. Penambahan `auto_connect`/credential-session terpisah tetap menjadi blocker schema dan harus menunggu keputusan model + migration yang eksplisit.
+Kolom `auto_connect` sekarang ditambahkan melalui migration eksplisit dengan default `false`. Repository WhatsApp dan Telegram hanya mengembalikan device dengan `auto_connect = true`, status `active`, belum soft-delete, dan expiry yang belum lewat. Dengan default tersebut, upgrade tidak diam-diam menyambungkan device lama.
 
 ---
 
