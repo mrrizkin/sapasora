@@ -53,18 +53,18 @@
 
 ## T0.2 Perbaiki CSRF
 
-- [ ] Petakan seluruh route web yang menggunakan session/cookie.
-- [ ] Pisahkan tempat token CSRF disimpan dari tempat token dibaca oleh extractor.
-- [ ] Jangan gunakan cookie yang sama sebagai `KeyLookup` dan `CsrfFromCookie`.
-- [ ] Pilih pola synchronizer token atau double-submit cookie yang benar.
-- [ ] Tandai cookie CSRF sesuai model keamanan yang dipilih.
-- [ ] Pastikan token tidak otomatis tersedia sebagai header pada cross-site request.
-- [ ] Tambahkan middleware test untuk valid request.
-- [ ] Tambahkan test request tanpa token.
-- [ ] Tambahkan test token salah.
-- [ ] Tambahkan test token lama/expired.
+- [x] Petakan seluruh route web yang menggunakan session/cookie.
+- [x] Pisahkan tempat token CSRF disimpan dari tempat token dibaca oleh extractor.
+- [x] Jangan gunakan cookie yang sama sebagai `KeyLookup` dan `CsrfFromCookie`.
+- [x] Pilih pola synchronizer token atau double-submit cookie yang benar.
+- [x] Tandai cookie CSRF sesuai model keamanan yang dipilih.
+- [x] Pastikan token tidak otomatis tersedia sebagai header pada cross-site request.
+- [x] Tambahkan middleware test untuk valid request.
+- [x] Tambahkan test request tanpa token.
+- [x] Tambahkan test token salah.
+- [x] Tambahkan test token lama/expired.
 - [ ] Tambahkan browser/E2E test terhadap form Inertia.
-- [ ] Dokumentasikan pengecualian hanya untuk webhook dengan signature provider.
+- [x] Dokumentasikan pengecualian hanya untuk webhook dengan signature provider.
 
 ## T0.3 Perbaiki device token authentication
 
