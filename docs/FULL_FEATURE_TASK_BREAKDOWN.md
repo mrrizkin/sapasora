@@ -892,13 +892,13 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 
 ## P7.5 Idempotency
 
-- [ ] Parse `Idempotency-Key`.
-- [ ] Scope key by workspace/actor/endpoint.
-- [ ] Store request fingerprint.
-- [ ] Return original result untuk duplicate request.
-- [ ] Reject same key dengan payload berbeda.
-- [ ] Set TTL sesuai operation.
-- [ ] Test concurrent duplicate requests.
+- [x] Parse `Idempotency-Key`.
+- [x] Scope key by workspace/actor/endpoint.
+- [x] Store request fingerprint.
+- [x] Return original result untuk duplicate request.
+- [x] Reject same key dengan payload berbeda.
+- [x] Set TTL sesuai operation.
+- [x] Test concurrent duplicate requests.
 - [ ] Test worker retry duplicate.
 - [ ] Test campaign launch duplicate.
 - [ ] Test webhook replay duplicate.
