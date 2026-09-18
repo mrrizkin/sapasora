@@ -2,25 +2,29 @@
 package device
 
 import (
+	"errors"
 	"fmt"
 
 	"sapasora/internal/app/http/controllers"
 	"sapasora/internal/app/policies"
 	"sapasora/internal/modules/account"
-	"sapasora/internal/modules/device"
+	devicemodule "sapasora/internal/modules/device"
+	devicelifecycle "sapasora/internal/modules/devicelifecycle"
 	"sapasora/internal/modules/permission"
 	"sapasora/platform/satpam"
 	"sapasora/platform/support/hash"
 	"sapasora/platform/ui/inertia"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 type DeviceController struct {
 	*controllers.Controller
 
-	accountService account.AccountService
-	deviceService  device.DeviceService
+	accountService        account.AccountService
+	deviceService         devicemodule.DeviceService
+	deviceDeletionService devicelifecycle.DeviceDeletionService
 }
 
 // NewDeviceController creates a new Devicecontrollers
@@ -28,12 +32,14 @@ type DeviceController struct {
 func NewDeviceController(
 	controller *controllers.Controller,
 	accountService account.AccountService,
-	deviceService device.DeviceService,
+	deviceService devicemodule.DeviceService,
+	deviceDeletionService devicelifecycle.DeviceDeletionService,
 ) *DeviceController {
 	return &DeviceController{
-		Controller:     controller,
-		accountService: accountService,
-		deviceService:  deviceService,
+		Controller:            controller,
+		accountService:        accountService,
+		deviceService:         deviceService,
+		deviceDeletionService: deviceDeletionService,
 	}
 }
 
@@ -201,7 +207,7 @@ func (c *DeviceController) Get(ctx *fiber.Ctx) error {
 func (c *DeviceController) GetDeviceByToken(ctx *fiber.Ctx) error {
 	// AuthenticationMiddleware is the only component allowed to resolve a
 	// device token. Do not read a token from path, query, or request body.
-	device, ok := ctx.Locals("device").(*device.Device)
+	device, ok := ctx.Locals("device").(*devicemodule.Device)
 	if !ok || device == nil {
 		return fiber.ErrUnauthorized
 	}
@@ -261,11 +267,11 @@ func (c *DeviceController) Store(ctx *fiber.Ctx) error {
 		}
 	}
 
-	device := device.Device{
+	device := devicemodule.Device{
 		PublicID:    hash.NanoID(),
 		Name:        payload.Name,
 		Type:        payload.Type,
-		Status:      device.DeviceStatusInactive,
+		Status:      devicemodule.DeviceStatusInactive,
 		UserID:      ownerID,
 		Events:      payload.Events,
 		ExpiredAt:   payload.ExpiredAt,
@@ -438,13 +444,29 @@ func (c *DeviceController) Destroy(ctx *fiber.Ctx) error {
 
 	device, err := c.deviceService.GetDeviceByPublicIDForUser(ctx.Context(), id, ownerID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if lookup, ok := c.deviceService.(devicemodule.DeletedDeviceOwnerScopedService); ok {
+				deletedDevice, lookupErr := lookup.GetDeletedDeviceByPublicIDForUser(ctx.Context(), id, ownerID)
+				if lookupErr == nil && deletedDevice != nil && deletedDevice.DeletedAt.Valid {
+					gate := satpam.New(&policies.CanDeleteDevice{}).AddResource("device", deletedDevice)
+					gate.AuthorizeAllPermissions(subject)
+					return ctx.JSON(DeviceResponse(deletedDevice))
+				}
+			}
+		}
 		return c.OwnerLookupError(err)
 	}
 
 	gate := satpam.New(&policies.CanDeleteDevice{}).AddResource("device", device)
 	gate.AuthorizeAllPermissions(subject)
 
-	if err := c.deviceService.DeleteDevice(ctx.Context(), device); err != nil {
+	if c.deviceDeletionService != nil {
+		if err := c.deviceDeletionService.DeleteDevice(ctx.Context(), device); err != nil {
+			return err
+		}
+	} else if err := c.deviceService.DeleteDevice(ctx.Context(), device); err != nil {
+		// Keep manually constructed controller test doubles compatible. Production
+		// wiring always supplies the lifecycle coordinator above.
 		return err
 	}
 

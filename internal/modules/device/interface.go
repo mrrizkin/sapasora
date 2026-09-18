@@ -39,6 +39,13 @@ type DeviceTokenOwnerScopedService interface {
 	GetDeviceByTokenForUser(ctx context.Context, token string, userID uint) (*Device, error)
 }
 
+// DeletedDeviceOwnerScopedService is used only by idempotent deletion flows.
+// It does not change normal resource lookups, which continue to hide deleted
+// devices through GORM's default scope.
+type DeletedDeviceOwnerScopedService interface {
+	GetDeletedDeviceByPublicIDForUser(ctx context.Context, publicID string, userID uint) (*Device, error)
+}
+
 type DeviceRepository interface {
 	ListDevice(ctx context.Context, search string, page, limit int) (*Pagination[*Device], error)
 	CreateDevice(ctx context.Context, device *Device) error

@@ -50,6 +50,22 @@ func (s *DeviceServiceImpl) GetDeviceByPublicIDForUser(
 	return s.repo.GetDeviceByPublicIDForUser(ctx, publicID, userID)
 }
 
+// GetDeletedDeviceByPublicIDForUser is intentionally an optional lifecycle
+// lookup for making an already completed DELETE idempotent.
+func (s *DeviceServiceImpl) GetDeletedDeviceByPublicIDForUser(
+	ctx context.Context,
+	publicID string,
+	userID uint,
+) (*Device, error) {
+	repo, ok := s.repo.(interface {
+		GetDeletedDeviceByPublicIDForUser(context.Context, string, uint) (*Device, error)
+	})
+	if !ok {
+		return nil, errors.New("deleted device lookup is unavailable")
+	}
+	return repo.GetDeletedDeviceByPublicIDForUser(ctx, publicID, userID)
+}
+
 func (s *DeviceServiceImpl) GetDeviceByToken(
 	ctx context.Context,
 	token string,

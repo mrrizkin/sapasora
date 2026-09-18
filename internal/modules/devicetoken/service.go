@@ -63,6 +63,13 @@ func (s *DeviceTokenServiceImpl) GetDeviceTokenByDeviceID(
 	return s.repo.GetDeviceTokenByDeviceID(ctx, deviceID)
 }
 
+func (s *DeviceTokenServiceImpl) ListDeviceTokensByDeviceID(
+	ctx context.Context,
+	deviceID uint,
+) ([]*DeviceToken, error) {
+	return s.repo.ListDeviceTokensByDeviceID(ctx, deviceID)
+}
+
 func (s *DeviceTokenServiceImpl) UpdateDeviceToken(
 	ctx context.Context,
 	devicetoken *DeviceToken,

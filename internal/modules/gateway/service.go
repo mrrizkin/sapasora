@@ -64,6 +64,18 @@ func unknownDeviceType(deviceType device.DeviceType) error {
 	return fmt.Errorf("%w: %w", ErrUnknownDeviceType, unsupportedCapability("gateway", deviceType))
 }
 
+// disconnectError makes deletion safe when a provider has already lost its
+// in-memory session. A real provider failure still stops the deletion flow.
+func disconnectError(err error) error {
+	if err == nil || errors.Is(err, whatsapp.ErrDeviceNotFound) ||
+		errors.Is(err, whatsapp.ErrNoSession) || errors.Is(err, whatsapp.ErrNotConnected) ||
+		errors.Is(err, telegram.ErrDeviceNotFound) || errors.Is(err, telegram.ErrNoSession) ||
+		errors.Is(err, telegram.ErrNotConnected) {
+		return nil
+	}
+	return err
+}
+
 type GatewayServiceImpl struct {
 	whatsappService whatsapp.WhatsappService
 	telegramService telegram.TelegramService
@@ -283,13 +295,13 @@ func (g *GatewayServiceImpl) Disconnect(ctx context.Context, d *device.Device) e
 		if err != nil {
 			return err
 		}
-		return a.Disconnect(ctx, d)
+		return disconnectError(a.Disconnect(ctx, d))
 	case device.DeviceTypeTelegram:
 		a, err := g.telegram()
 		if err != nil {
 			return err
 		}
-		return a.Disconnect(ctx, d)
+		return disconnectError(a.Disconnect(ctx, d))
 	default:
 		return unknownDeviceType(t)
 	}
