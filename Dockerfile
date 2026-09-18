@@ -45,6 +45,8 @@ RUN git clone --depth=1 https://github.com/tdlib/td.git /tmp/td \
     && cmake --build build --target install -j"$(nproc)" \
     && rm -rf /tmp/td
 
+ENV LD_LIBRARY_PATH=/usr/local/lib
+
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -53,8 +55,9 @@ COPY . .
 COPY --from=assets /src/public/build ./public/build
 
 RUN go tool templ generate
-RUN CGO_ENABLED=1 go build -tags libtdjson -trimpath -ldflags="-s -w" -o /out/app ./cmd/main
 RUN CGO_ENABLED=1 go build -tags libtdjson -trimpath -ldflags="-s -w" -o /out/toolbox ./cmd/toolbox
+RUN /out/toolbox swagger
+RUN CGO_ENABLED=1 go build -tags libtdjson -trimpath -ldflags="-s -w" -o /out/app ./cmd/main
 
 FROM debian:bookworm-slim AS runtime
 

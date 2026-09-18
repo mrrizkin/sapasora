@@ -16,15 +16,15 @@ import (
 
 func GenerateSwagger() {
 	outputDir := "public/docs/v3"
-	_, err := exec.Command("swag", "--version").Output()
+	_, err := exec.Command("go", "tool", "swag", "--version").Output()
 	if err != nil {
-		console.Error(
-			"swag is not installed. Please install it before running this command.",
-		)
+		console.Error("swag Go tool is unavailable: %s", err.Error())
 		os.Exit(1)
 	}
 
 	cmd := exec.Command(
+		"go",
+		"tool",
 		"swag",
 		"init",
 		"-g",
@@ -45,6 +45,10 @@ func GenerateSwagger() {
 
 	if outputDir == "" {
 		console.Error("Output directory is required")
+		os.Exit(1)
+	}
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		console.Error("Error creating output directory: %s", err.Error())
 		os.Exit(1)
 	}
 
