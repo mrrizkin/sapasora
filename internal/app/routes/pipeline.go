@@ -31,29 +31,36 @@ func NewWeb(config config.Config, session *session.Session) *Web {
 }
 
 func (s *Web) PipeLine() []fiber.Handler {
-	cookieName := s.config.GetString("security.csrf.cookie_name", "fiber")
+	csrfKey := s.config.GetString("security.csrf.key", "X-CSRF-Token")
+	cookieName := s.config.GetString("security.csrf.cookie_name", "fiber_csrf_token")
 	sameSite := s.config.GetString("security.csrf.same_site", "Lax")
 	secure := s.config.GetBool("security.csrf.secure", false)
-	httpOnly := s.config.GetBool("security.csrf.http_only", true)
+	useSession := s.config.GetBool("security.csrf.session", true)
 	expiration := s.config.GetDuration("security.csrf.expiration", 3600*time.Second)
 
+	csrfConfig := csrf.Config{
+		// The header is the submitted token. The cookie is only the readable
+		// double-submit source; it is never accepted as the request token.
+		KeyLookup:         fmt.Sprintf("header:%s", csrfKey),
+		CookieName:        cookieName,
+		CookiePath:        "/",
+		CookieSameSite:    sameSite,
+		CookieSecure:      secure,
+		CookieSessionOnly: false,
+		CookieHTTPOnly:    false,
+		SingleUseToken:    false,
+		Expiration:        expiration,
+		KeyGenerator:      utils.UUIDv4,
+		ErrorHandler:      csrf.ConfigDefault.ErrorHandler,
+		SessionKey:        "fiber.csrf.token",
+		HandlerContextKey: "fiber.csrf.handler",
+	}
+	if useSession {
+		csrfConfig.Session = s.session.Store
+	}
+
 	return arr.List(
-		csrf.New(csrf.Config{
-			KeyLookup:         fmt.Sprintf("cookie:%s", cookieName),
-			CookieName:        cookieName,
-			CookieSameSite:    sameSite,
-			CookieSecure:      secure,
-			CookieSessionOnly: true,
-			CookieHTTPOnly:    httpOnly,
-			SingleUseToken:    true,
-			Expiration:        expiration,
-			KeyGenerator:      utils.UUIDv4,
-			ErrorHandler:      csrf.ConfigDefault.ErrorHandler,
-			Extractor:         csrf.CsrfFromCookie(cookieName),
-			Session:           s.session.Store,
-			SessionKey:        "fiber.csrf.token",
-			HandlerContextKey: "fiber.csrf.handler",
-		}),
+		csrf.New(csrfConfig),
 		cors.New(),
 		helmet.New(),
 	)

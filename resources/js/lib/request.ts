@@ -1,12 +1,33 @@
 import axios from 'axios';
 
+import { csrfCookieName, csrfHeaderName, csrfHeaders } from './csrf';
+
 const request = axios.create({
   baseURL: import.meta.env.VITE_APP_URL,
   headers: {
     'X-Requested-With': 'XMLHttpRequest',
   },
   withCredentials: true,
+  xsrfCookieName: csrfCookieName,
+  xsrfHeaderName: csrfHeaderName,
   timeout: 30000,
+});
+
+request.interceptors.request.use((config) => {
+  let url = config.url;
+  if (config.baseURL) {
+    try {
+      url = new URL(config.url || '', config.baseURL).toString();
+    } catch {
+      // Keep the relative URL when Axios receives a non-absolute base URL.
+    }
+  }
+
+  const headers = csrfHeaders(url);
+  for (const [name, value] of Object.entries(headers)) {
+    config.headers.set(name, value);
+  }
+  return config;
 });
 
 request.interceptors.response.use(null, requestErrorHandler);

@@ -491,25 +491,22 @@ Audit kedua memeriksa ulang alur request, authentication, authorization, lifecyc
 
 **Lokasi:** `internal/app/routes/pipeline.go`
 
-Middleware CSRF memakai cookie yang sama sebagai `KeyLookup` dan `Extractor`:
+Status remediasi T0.2: middleware CSRF web sekarang memakai pola synchronizer-backed double-submit.
 
 ```go
-KeyLookup: fmt.Sprintf("cookie:%s", cookieName)
-Extractor:  csrf.CsrfFromCookie(cookieName)
+KeyLookup:  fmt.Sprintf("header:%s", csrfKey)
+Session:    sessionStore
+CookieName: cookieName // readable same-origin source, not the request extractor
 ```
 
-Browser otomatis mengirim cookie pada request cross-site. Karena token yang divalidasi juga diambil dari cookie yang sama, request unsafe tidak memerlukan token rahasia di header atau field form.
+Browser memang otomatis mengirim cookie pada request cross-site, tetapi request
+unsafe juga wajib membawa header CSRF yang hanya ditambahkan oleh JavaScript
+same-origin. Token header harus sama dengan cookie dan token yang tersimpan di
+server session.
 
-### Dampak
-
-Login dan seluruh web mutation dapat rentan terhadap CSRF jika request cross-site berhasil melewati kebijakan browser yang berlaku.
-
-### Rekomendasi
-
-- Gunakan pola synchronizer token atau double-submit cookie.
-- Simpan token pada cookie non-HTTPOnly yang dibaca frontend, lalu kirim ulang melalui header `X-CSRF-Token`.
-- Atau gunakan `KeyLookup: header:X-CSRF-Token` dan tetap validasi token terhadap cookie/session.
-- Tambahkan pengujian request cross-site untuk POST, PUT, dan DELETE.
+API dan channel pipeline tidak menggunakan middleware CSRF web. Endpoint
+webhook yang memakai signature provider harus tetap berada di pipeline tersebut
+dan memvalidasi signature serta replay protection secara independen.
 
 ---
 

@@ -6,9 +6,19 @@ import { type DefineComponent, createSSRApp, h } from 'vue';
 
 import '@/css/app.css';
 
+import { csrfHeaders } from './lib/csrf';
+
 const appName = import.meta.env.VITE_APP_NAME || 'Sapasora App';
 
 createInertiaApp({
+  defaults: {
+    visitOptions: (href, options) => ({
+      headers: {
+        ...options.headers,
+        ...csrfHeaders(href),
+      },
+    }),
+  },
   title: (title) => (title ? `${title} - ${appName}` : appName),
   resolve(name) {
     return resolvePageComponent(`./pages/${name}.vue`, import.meta.glob<DefineComponent>('./pages/**/*.vue'));

@@ -9,7 +9,6 @@ type Security struct {
 		SameSite   string        `name:"same_site"   env:"CSRF_SAME_SITE,default=Lax"`
 		Secure     bool          `name:"secure"      env:"CSRF_SECURE,default=true"`
 		Session    bool          `name:"session"     env:"CSRF_SESSION,default=true"`
-		HTTPOnly   bool          `name:"http_only"   env:"CSRF_HTTP_ONLY,default=true"`
 		Expiration time.Duration `name:"expiration"  env:"CSRF_EXPIRATION,default=3600s"`
 	} `name:"csrf"`
 }
