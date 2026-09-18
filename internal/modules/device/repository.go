@@ -178,11 +178,9 @@ func (r *DeviceRepositoryImpl) DeleteDevice(ctx context.Context, device *Device)
 	return r.db.WithContext(ctx).Delete(device).Error
 }
 
-// listStartupDevices returns only devices that are eligible for provider
-// startup. The schema currently has no auto_connect column, so startup must
-// not invent or infer one. Until that schema decision is made, active is the
-// explicit opt-in state and device.expired_at is the only existing device-level
-// credential/session expiry boundary; no separate provider session field exists.
+// listStartupDevices returns only devices explicitly opted in to provider
+// startup. auto_connect defaults to false in the migration, so existing and
+// newly-created devices remain disconnected until the owner enables it.
 func (r *DeviceRepositoryImpl) listStartupDevices(
 	ctx context.Context,
 	deviceType DeviceType,
@@ -193,6 +191,7 @@ func (r *DeviceRepositoryImpl) listStartupDevices(
 		Where("m_devices.type = ?", deviceType).
 		Where("m_devices.deleted_at IS NULL").
 		Where("m_devices.status = ?", DeviceStatusActive.String()).
+		Where("m_devices.auto_connect = ?", true).
 		Where("m_devices.expired_at IS NULL OR m_devices.expired_at > ?", now).
 		Find(&devices).Error
 	return devices, err

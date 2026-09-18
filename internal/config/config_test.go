@@ -44,6 +44,32 @@ func TestNewAppConfigRejectsDurationWithoutUnit(t *testing.T) {
 	require.ErrorContains(t, err, "invalid duration value")
 }
 
+func TestNewAppConfigUsesSafeDefaultProviderStartupConcurrency(t *testing.T) {
+	setRequiredEnvironment(t)
+
+	cfg, err := NewAppConfig(platformconfig.NewConfigManager())
+	require.NoError(t, err)
+	require.Equal(t, 4, cfg.GetInt("provider.startup_concurrency"))
+}
+
+func TestNewAppConfigLoadsProviderStartupConcurrency(t *testing.T) {
+	setRequiredEnvironment(t)
+	t.Setenv("PROVIDER_STARTUP_CONCURRENCY", "7")
+
+	cfg, err := NewAppConfig(platformconfig.NewConfigManager())
+	require.NoError(t, err)
+	require.Equal(t, 7, cfg.GetInt("provider.startup_concurrency"))
+}
+
+func TestNewAppConfigRejectsNonPositiveProviderStartupConcurrency(t *testing.T) {
+	setRequiredEnvironment(t)
+	t.Setenv("PROVIDER_STARTUP_CONCURRENCY", "0")
+
+	_, err := NewAppConfig(platformconfig.NewConfigManager())
+	require.Error(t, err)
+	require.ErrorContains(t, err, "provider startup concurrency must be at least 1")
+}
+
 func TestNewAppConfigLoadsServerConfig(t *testing.T) {
 	setRequiredEnvironment(t)
 	t.Setenv("SERVER_READ_TIMEOUT", "2s")

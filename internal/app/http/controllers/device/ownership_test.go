@@ -24,6 +24,8 @@ type ownershipDeviceServiceStub struct {
 	scopedLookupCalled bool
 	gotOwnerID         uint
 	created            *devicemodule.Device
+	updated            *devicemodule.Device
+	scopedDevice       *devicemodule.Device
 	deleted            bool
 }
 
@@ -35,11 +37,19 @@ func (s *ownershipDeviceServiceStub) GetDeviceByPublicID(_ context.Context, _ st
 func (s *ownershipDeviceServiceStub) GetDeviceByPublicIDForUser(_ context.Context, _ string, ownerID uint) (*devicemodule.Device, error) {
 	s.scopedLookupCalled = true
 	s.gotOwnerID = ownerID
+	if s.scopedDevice != nil {
+		return s.scopedDevice, nil
+	}
 	return nil, gorm.ErrRecordNotFound
 }
 
 func (s *ownershipDeviceServiceStub) CreateDevice(_ context.Context, created *devicemodule.Device) error {
 	s.created = created
+	return nil
+}
+
+func (s *ownershipDeviceServiceStub) UpdateDevice(_ context.Context, updated *devicemodule.Device) error {
+	s.updated = updated
 	return nil
 }
 
@@ -116,4 +126,39 @@ func TestDeviceStoreUsesAuthenticatedOwnerInsteadOfRequestUserID(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.StatusCode)
 	require.NotNil(t, stub.created)
 	require.Equal(t, uint(7), stub.created.UserID)
+	require.False(t, stub.created.AutoConnect)
+}
+
+func TestDeviceStoreAcceptsAutoConnectOptIn(t *testing.T) {
+	stub := &ownershipDeviceServiceStub{}
+	app := newDeviceOwnershipTestApp(stub)
+	request := httptest.NewRequest(http.MethodPost, "/device", bytes.NewBufferString(`{"name":"device","type":"whatsapp","auto_connect":true}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, response.StatusCode)
+	require.NotNil(t, stub.created)
+	require.True(t, stub.created.AutoConnect)
+}
+
+func TestDeviceUpdatePreservesAutoConnectWhenOmitted(t *testing.T) {
+	stub := &ownershipDeviceServiceStub{
+		scopedDevice: &devicemodule.Device{
+			PublicID:    "device-1",
+			Name:        "old",
+			Type:        devicemodule.DeviceTypeWhatsapp,
+			Status:      devicemodule.DeviceStatusActive,
+			AutoConnect: true,
+		},
+	}
+	app := newDeviceOwnershipTestApp(stub)
+	request := httptest.NewRequest(http.MethodPut, "/device/device-1", bytes.NewBufferString(`{"name":"new name","type":"whatsapp"}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, response.StatusCode)
+	require.NotNil(t, stub.updated)
+	require.True(t, stub.updated.AutoConnect)
 }

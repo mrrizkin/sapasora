@@ -24,6 +24,7 @@ type Device struct {
 	Jid         nihil.NilString        `json:"jid"`
 	QRCode      nihil.NilString        `json:"qr_code"`
 	Status      DeviceStatus           `json:"status"`
+	AutoConnect bool                   `json:"auto_connect"`
 	ExpiredAt   nihil.NilTime          `json:"-"`
 	Events      nihil.NilString        `json:"events"`
 	Permissions *permission.Permission `json:"permission"`

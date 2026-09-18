@@ -32,6 +32,7 @@ func newDeviceTokenRepositoryTest(t *testing.T) (*DeviceRepositoryImpl, *gorm.DB
 			webhook TEXT,
 			jid TEXT,
 			status TEXT,
+			auto_connect BOOLEAN NOT NULL DEFAULT FALSE,
 			expired_at DATETIME NULL,
 			events TEXT,
 			permissions TEXT,
@@ -191,26 +192,29 @@ func TestStartupDeviceQueriesFilterEligibility(t *testing.T) {
 	past := time.Now().Add(-time.Hour)
 
 	fixtures := []struct {
-		id         int
-		deviceType string
-		status     string
-		expiredAt  any
-		deletedAt  any
+		id          int
+		deviceType  string
+		status      string
+		autoConnect bool
+		expiredAt   any
+		deletedAt   any
 	}{
-		{1, "whatsapp", "active", nil, nil},
-		{2, "whatsapp", "active", future, nil},
-		{3, "whatsapp", "inactive", nil, nil},
-		{4, "whatsapp", "connected", nil, nil},
-		{5, "whatsapp", "active", past, nil},
-		{6, "whatsapp", "active", nil, time.Now()},
-		{7, "telegram", "active", nil, nil},
+		{1, "whatsapp", "active", true, nil, nil},
+		{2, "whatsapp", "active", true, future, nil},
+		{3, "whatsapp", "active", false, nil, nil},
+		{4, "whatsapp", "inactive", true, nil, nil},
+		{5, "whatsapp", "connected", true, nil, nil},
+		{6, "whatsapp", "active", true, past, nil},
+		{7, "whatsapp", "active", true, nil, time.Now()},
+		{8, "telegram", "active", true, nil, nil},
+		{9, "telegram", "active", false, nil, nil},
 	}
 	for _, fixture := range fixtures {
 		require.NoError(t, db.Exec(`
-			INSERT INTO m_devices (id, public_id, name, type, status, expired_at, deleted_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO m_devices (id, public_id, name, type, status, auto_connect, expired_at, deleted_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		`, fixture.id, fixtureName(fixture.id), fixtureName(fixture.id), fixture.deviceType,
-			fixture.status, fixture.expiredAt, fixture.deletedAt).Error)
+			fixture.status, fixture.autoConnect, fixture.expiredAt, fixture.deletedAt).Error)
 	}
 
 	whatsappDevices, err := repository.GetAllWhatsappDevices(context.Background())
@@ -221,7 +225,7 @@ func TestStartupDeviceQueriesFilterEligibility(t *testing.T) {
 	telegramDevices, err := repository.GetAllTelegramDevices(context.Background())
 	require.NoError(t, err)
 	require.Len(t, telegramDevices, 1)
-	require.Equal(t, uint(7), telegramDevices[0].ID)
+	require.Equal(t, uint(8), telegramDevices[0].ID)
 }
 
 func fixtureName(id int) string {
