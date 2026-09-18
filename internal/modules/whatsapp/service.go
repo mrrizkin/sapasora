@@ -2,19 +2,18 @@ package whatsapp
 
 import (
 	"context"
-	"sapasora/internal/modules/device"
-	"sapasora/platform/logger"
-	"sapasora/platform/support/arr"
 	"errors"
 	"fmt"
 	"net/http"
+	"sapasora/internal/modules/device"
+	"sapasora/platform/logger"
+	"sapasora/platform/support/arr"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"codeberg.org/mrrizkin/nihil"
-	"github.com/vincent-petithory/dataurl"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/proto/waVnameCert"
@@ -45,6 +44,9 @@ func (w *WhatsappServiceImpl) CheckUser(
 	device *device.Device,
 	payload *CheckUserRequest,
 ) (*CheckUserResponse, error) {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
 	client, err := w.wMeow.GetClient(device.PublicID)
 	if err != nil {
 		return nil, err
@@ -80,7 +82,7 @@ func (w *WhatsappServiceImpl) Connect(
 	if !found {
 		w.log.Warn("Device not found, creating new device", "device", device.Name)
 
-		deviceInfo := NewDeviceInfoFromDevice(device)
+		deviceInfo = NewDeviceInfoFromDevice(device)
 		w.wMeow.deviceInfoStore.Set(device.PublicID, deviceInfo)
 	}
 
@@ -104,25 +106,28 @@ func (w *WhatsappServiceImpl) Connect(
 
 	w.log.Info("Attempting to connect to WhatsApp")
 	w.wMeow.NewKillChannel(deviceInfo.ID)
-	go w.wMeow.StartClient(ctx, deviceInfo, subscribedEvents)
+	go w.wMeow.StartClient(context.WithoutCancel(ctx), deviceInfo, subscribedEvents)
 
 	if payload.Immediate {
 		return nil
 	}
 
-	w.log.Info("Waiting 10 seconds")
-	time.Sleep(10000 * time.Millisecond)
-
-	client, err := w.wMeow.GetClient(deviceInfo.ID)
-	if err != nil {
-		return err
+	w.log.Info("Waiting for WhatsApp connection")
+	waitCtx, cancel := providerContext(ctx)
+	defer cancel()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		client, err := w.wMeow.GetClient(deviceInfo.ID)
+		if err == nil && client != nil && client.IsConnected() {
+			return nil
+		}
+		select {
+		case <-waitCtx.Done():
+			return ErrFailedToConnect
+		case <-ticker.C:
+		}
 	}
-
-	if client != nil || !client.IsConnected() {
-		return ErrFailedToConnect
-	}
-
-	return nil
 }
 
 // Disconnect implements [WhatsappService].
@@ -157,9 +162,15 @@ func (w *WhatsappServiceImpl) GetAvatar(
 	device *device.Device,
 	payload *GetAvatarRequest,
 ) (*GetAvatarResponse, error) {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return nil, ErrDeviceNotFound
+	}
+	if payload == nil {
+		return nil, ErrInvalidPhoneNumber
 	}
 
 	client, err := w.wMeow.GetClient(deviceInfo.ID)
@@ -167,7 +178,7 @@ func (w *WhatsappServiceImpl) GetAvatar(
 		return nil, err
 	}
 
-	jid, ok := w.wMeow.ParseJID(deviceInfo.Jid.String)
+	jid, ok := w.wMeow.ParseJID(payload.Phone)
 	if !ok {
 		return nil, ErrInvalidPhoneNumber
 	}
@@ -199,6 +210,9 @@ func (w *WhatsappServiceImpl) GetContacts(
 	ctx context.Context,
 	device *device.Device,
 ) (*GetContactsResponse, error) {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return nil, ErrDeviceNotFound
@@ -238,6 +252,9 @@ func (w *WhatsappServiceImpl) GetStatus(
 	ctx context.Context,
 	device *device.Device,
 ) (*GetStatusResponse, error) {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return nil, ErrDeviceNotFound
@@ -267,6 +284,9 @@ func (w *WhatsappServiceImpl) GetUser(
 	device *device.Device,
 	payload *GetUserRequest,
 ) (*GetUserResponse, error) {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return nil, ErrDeviceNotFound
@@ -322,6 +342,9 @@ func (w *WhatsappServiceImpl) Logout(
 	ctx context.Context,
 	device *device.Device,
 ) error {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return ErrDeviceNotFound
@@ -355,6 +378,13 @@ func (w *WhatsappServiceImpl) SendAudio(
 	device *device.Device,
 	payload *SendAudioRequest,
 ) (*SendResponse, error) {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
+	if payload == nil {
+		return nil, ErrEmptyBody
+	}
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return nil, ErrDeviceNotFound
@@ -376,22 +406,15 @@ func (w *WhatsappServiceImpl) SendAudio(
 	}
 
 	var uploaded whatsmeow.UploadResponse
-	var filedata []byte
 
-	if payload.Audio[0:14] != "data:audio/ogg" {
-		return nil, errors.New(
-			"audio data should start with \"data:audio/ogg;base64,\"",
-		)
-	}
-
-	dataURL, err := dataurl.DecodeString(payload.Audio)
+	dataURL, err := decodeMediaDataURL(payload.Audio, "audio/ogg")
 	if err != nil {
 		return nil, errors.New(
-			"could not decode base64 encoded data from payload",
+			"audio data should be a valid base64 data URL with MIME type audio/ogg",
 		)
 	}
 
-	filedata = dataURL.Data
+	filedata := dataURL.Data
 	uploaded, err = client.Upload(ctx, filedata, whatsmeow.MediaAudio)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload file: %v", err)
@@ -452,6 +475,9 @@ func (w *WhatsappServiceImpl) SendButton(
 	device *device.Device,
 	payload *SendButtonTextRequest,
 ) (*SendResponse, error) {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return nil, ErrDeviceNotFound
@@ -524,6 +550,9 @@ func (w *WhatsappServiceImpl) SendChatPresence(
 	device *device.Device,
 	payload *ChatPresenceRequest,
 ) error {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return ErrDeviceNotFound
@@ -553,6 +582,9 @@ func (w *WhatsappServiceImpl) SendContact(
 	device *device.Device,
 	payload *SendContactRequest,
 ) (*SendResponse, error) {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return nil, ErrDeviceNotFound
@@ -619,6 +651,13 @@ func (w *WhatsappServiceImpl) SendDocument(
 	device *device.Device,
 	payload *SendDocumentRequest,
 ) (*SendResponse, error) {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
+	if payload == nil {
+		return nil, ErrEmptyBody
+	}
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return nil, ErrDeviceNotFound
@@ -639,23 +678,19 @@ func (w *WhatsappServiceImpl) SendDocument(
 		return nil, err
 	}
 
-	var uploaded whatsmeow.UploadResponse
-	var filedata []byte
-
-	if payload.Document[0:29] != "data:application/octet-stream" {
-		return nil, errors.New(
-			"document data should start with \"data:application/octet-stream;base64,\"",
-		)
+	if !validDocumentFilename(payload.FileName) {
+		return nil, ErrInvalidFilename
 	}
 
-	dataURL, err := dataurl.DecodeString(payload.Document)
+	var uploaded whatsmeow.UploadResponse
+	dataURL, err := decodeMediaDataURL(payload.Document, "application/octet-stream")
 	if err != nil {
 		return nil, errors.New(
-			"could not decode base64 encoded data from payload",
+			"document data should be a valid base64 data URL with MIME type application/octet-stream",
 		)
 	}
 
-	filedata = dataURL.Data
+	filedata := dataURL.Data
 	uploaded, err = client.Upload(ctx, filedata, whatsmeow.MediaDocument)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload file: %v", err)
@@ -713,6 +748,13 @@ func (w *WhatsappServiceImpl) SendImage(
 	device *device.Device,
 	payload *SendImageRequest,
 ) (*SendResponse, error) {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
+	if payload == nil {
+		return nil, ErrEmptyBody
+	}
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return nil, ErrDeviceNotFound
@@ -734,22 +776,14 @@ func (w *WhatsappServiceImpl) SendImage(
 	}
 
 	var uploaded whatsmeow.UploadResponse
-	var filedata []byte
-
-	if payload.Image[0:10] != "data:image" {
-		return nil, errors.New(
-			"image data should start with \"data:image/png;base64,\"",
-		)
-	}
-
-	dataURL, err := dataurl.DecodeString(payload.Image)
+	dataURL, err := decodeMediaDataURL(payload.Image, "image/*")
 	if err != nil {
 		return nil, errors.New(
-			"could not decode base64 encoded data from payload",
+			"image data should be a valid base64 data URL with an image MIME type",
 		)
 	}
 
-	filedata = dataURL.Data
+	filedata := dataURL.Data
 	uploaded, err = client.Upload(ctx, filedata, whatsmeow.MediaImage)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload file: %v", err)
@@ -807,6 +841,9 @@ func (w *WhatsappServiceImpl) SendList(
 	device *device.Device,
 	payload *SendListRequest,
 ) (*SendResponse, error) {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return nil, ErrDeviceNotFound
@@ -892,6 +929,9 @@ func (w *WhatsappServiceImpl) SendLocation(
 	device *device.Device,
 	payload *SendLocationRequest,
 ) (*SendResponse, error) {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return nil, ErrDeviceNotFound
@@ -959,6 +999,13 @@ func (w *WhatsappServiceImpl) SendSticker(
 	device *device.Device,
 	payload *SendStickerRequest,
 ) (*SendResponse, error) {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
+	if payload == nil {
+		return nil, ErrEmptyBody
+	}
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return nil, ErrDeviceNotFound
@@ -980,22 +1027,14 @@ func (w *WhatsappServiceImpl) SendSticker(
 	}
 
 	var uploaded whatsmeow.UploadResponse
-	var filedata []byte
-
-	if payload.Sticker[0:4] != "data" {
-		return nil, errors.New(
-			"data should start with \"data:mime/type;base64,\"",
-		)
-	}
-
-	dataURL, err := dataurl.DecodeString(payload.Sticker)
+	dataURL, err := decodeMediaDataURL(payload.Sticker)
 	if err != nil {
 		return nil, errors.New(
-			"could not decode base64 encoded data from payload",
+			"sticker data should be a valid base64 data URL",
 		)
 	}
 
-	filedata = dataURL.Data
+	filedata := dataURL.Data
 	uploaded, err = client.Upload(ctx, filedata, whatsmeow.MediaImage)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload file: %v", err)
@@ -1053,6 +1092,9 @@ func (w *WhatsappServiceImpl) SendText(
 	device *device.Device,
 	payload *SendTextRequest,
 ) (*SendResponse, error) {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return nil, ErrDeviceNotFound
@@ -1120,6 +1162,13 @@ func (w *WhatsappServiceImpl) SendVideo(
 	device *device.Device,
 	payload *SendVideoRequest,
 ) (*SendResponse, error) {
+	ctx, cancel := providerContext(ctx)
+	defer cancel()
+
+	if payload == nil {
+		return nil, ErrEmptyBody
+	}
+
 	deviceInfo, found := w.wMeow.deviceInfoStore.Get(device.PublicID)
 	if !found {
 		return nil, ErrDeviceNotFound
@@ -1136,17 +1185,10 @@ func (w *WhatsappServiceImpl) SendVideo(
 	}
 
 	var uploaded whatsmeow.UploadResponse
-	var filedata []byte
-	if payload.Video[0:4] != "data" {
-		return nil, errors.New(
-			"data should start with \"data:mime/type;base64,\"",
-		)
-	}
-
-	dataURL, err := dataurl.DecodeString(payload.Video)
+	dataURL, err := decodeMediaDataURL(payload.Video, "video/*")
 	if err != nil {
 		return nil, errors.New(
-			"could not decode base64 encoded data from payload",
+			"video data should be a valid base64 data URL with a video MIME type",
 		)
 	}
 
@@ -1155,7 +1197,7 @@ func (w *WhatsappServiceImpl) SendVideo(
 		return nil, err
 	}
 
-	filedata = dataURL.Data
+	filedata := dataURL.Data
 	uploaded, err = client.Upload(ctx, filedata, whatsmeow.MediaVideo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload file: %v", err)

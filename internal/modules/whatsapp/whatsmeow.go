@@ -3,14 +3,15 @@ package whatsapp
 import (
 	"context"
 	"crypto/tls"
+	"encoding/base64"
+	"errors"
 	"sapasora/internal/modules/device"
 	"sapasora/platform/config"
 	"sapasora/platform/database"
 	"sapasora/platform/logger"
-	"encoding/base64"
-	"errors"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"codeberg.org/mrrizkin/nihil"
@@ -45,6 +46,8 @@ type Whatsmeow struct {
 	clientHTTP      *Store[*resty.Client]
 	deviceInfoStore *Store[*WhatsmeowDeviceInfo]
 	killchannel     *Store[(chan bool)]
+
+	lifecycleMu sync.Mutex
 
 	container *sqlstore.Container
 	log       *logger.Logger
@@ -148,7 +151,7 @@ func (w *Whatsmeow) StartClient(
 	var deviceStore *store.Device
 	var err error
 
-	if client, ok := w.clientStore.Get(deviceInfo.ID); ok {
+	if client, ok := w.clientStore.Get(deviceInfo.ID); ok && client != nil {
 		isConnected := client.IsConnected()
 		if isConnected {
 			w.log.Info("Already connected to Whatsmeow", "device", deviceInfo.Name)
@@ -156,11 +159,27 @@ func (w *Whatsmeow) StartClient(
 		}
 	}
 
+	// Capture the channel for this connection attempt before provider setup. A reconnect
+	// replaces the channel, so an older attempt must not start listening on the new one.
+	killchannel, ok := w.killchannel.Get(deviceInfo.ID)
+	if !ok || killchannel == nil {
+		w.log.Error("Kill channel not found", "device", deviceInfo.Name)
+		return
+	}
+
 	if deviceInfo.Jid.Valid {
-		jid, _ := w.ParseJID(deviceInfo.Jid.String)
-		deviceStore, err = w.container.GetDevice(ctx, jid)
-		if err != nil {
-			panic(err)
+		jid, valid := w.ParseJID(deviceInfo.Jid.String)
+		if !valid {
+			w.log.Warn("Invalid stored jid. Creating new device", "device", deviceInfo.Name)
+			deviceStore = w.container.NewDevice()
+		} else {
+			deviceCtx, cancel := providerContext(ctx)
+			deviceStore, err = w.container.GetDevice(deviceCtx, jid)
+			cancel()
+			if err != nil {
+				w.log.Error("Failed to load WhatsApp device store", "device", deviceInfo.Name, "error", err)
+				return
+			}
 		}
 	} else {
 		w.log.Warn("No jid found. Creating new device", "device", deviceInfo.Name)
@@ -178,7 +197,15 @@ func (w *Whatsmeow) StartClient(
 
 	whatsmeowClient := whatsmeow.NewClient(deviceStore, nil)
 
+	w.lifecycleMu.Lock()
+	currentKillChannel, current := w.killchannel.Get(deviceInfo.ID)
+	if !current || currentKillChannel != killchannel {
+		w.lifecycleMu.Unlock()
+		return
+	}
 	w.clientStore.Set(deviceInfo.ID, whatsmeowClient)
+	w.lifecycleMu.Unlock()
+
 	client := NewClient(
 		whatsmeowClient,
 		deviceInfo,
@@ -192,12 +219,19 @@ func (w *Whatsmeow) StartClient(
 	httpClient.SetTimeout(5 * time.Second)
 	httpClient.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 
+	w.lifecycleMu.Lock()
+	currentKillChannel, current = w.killchannel.Get(deviceInfo.ID)
+	if !current || currentKillChannel != killchannel {
+		w.lifecycleMu.Unlock()
+		return
+	}
 	w.clientHTTP.Set(deviceInfo.ID, httpClient)
+	w.lifecycleMu.Unlock()
 
 	if whatsmeowClient.Store.ID == nil {
 		// No ID stored, new login
 
-		qrChan, err := whatsmeowClient.GetQRChannel(ctx)
+		qrChan, err := whatsmeowClient.GetQRChannel(context.WithoutCancel(ctx))
 		if err != nil {
 			// This error means that we're already logged in, so ignore it.
 			if !errors.Is(err, whatsmeow.ErrQRStoreContainsID) {
@@ -205,9 +239,9 @@ func (w *Whatsmeow) StartClient(
 			}
 		} else {
 			go func() {
-				err = whatsmeowClient.Connect()
-				if err != nil {
-					w.log.Error("Failed to connect to WhatsMeow", "device", deviceInfo.Name, "error", err)
+				connectErr := connectWithTimeout(ctx, whatsmeowClient)
+				if connectErr != nil {
+					w.log.Error("Failed to connect to WhatsMeow", "device", deviceInfo.Name, "error", connectErr)
 					return
 				}
 				for evt := range qrChan {
@@ -227,8 +261,7 @@ func (w *Whatsmeow) StartClient(
 							w.log.Error("Failed to set QR code", "device", deviceInfo.Name, "error", err)
 						}
 						w.log.Warn("QR timeout killing channel", "device", deviceInfo.Name)
-						w.clientStore.Delete(deviceInfo.ID)
-						w.SendKillChannel(deviceInfo.ID)
+						sendKillSignal(killchannel)
 					case "success":
 						w.log.Info("QR pairing ok!", "device", deviceInfo.Name)
 
@@ -246,7 +279,7 @@ func (w *Whatsmeow) StartClient(
 	} else {
 		// Already logged in, just connect
 		w.log.Info("Already logged in, just connect", "device", deviceInfo.Name)
-		err = whatsmeowClient.Connect()
+		err = connectWithTimeout(ctx, whatsmeowClient)
 		if err != nil {
 			w.log.Error("Failed to connect to WhatsMeow", "device", deviceInfo.Name, "error", err)
 			return
@@ -254,18 +287,12 @@ func (w *Whatsmeow) StartClient(
 	}
 
 	// Keep connected client live until disconnected/killed
-	killchannel, ok := w.killchannel.Get(deviceInfo.ID)
-	if !ok {
-		w.log.Error("Kill channel not found", "device", deviceInfo.Name)
-		return
-	}
 	for {
 		select {
 		case <-killchannel:
 			w.log.Info("Received kill signal", "device", deviceInfo.Name)
 			whatsmeowClient.Disconnect()
-			w.clientHTTP.Delete(deviceInfo.ID)
-			w.killchannel.Delete(deviceInfo.ID)
+			w.cleanupSession(deviceInfo.ID, whatsmeowClient, killchannel)
 			err := w.deviceService.SetDeviceStatusDisconnectedByPublicID(ctx, deviceInfo.ID)
 			if err != nil {
 				w.log.Error(
@@ -283,7 +310,33 @@ func (w *Whatsmeow) StartClient(
 	}
 }
 
+func connectWithTimeout(ctx context.Context, client *whatsmeow.Client) error {
+	connectCtx, cancel := providerContext(ctx)
+	defer cancel()
+
+	result := make(chan error, 1)
+	go func() {
+		result <- client.Connect()
+	}()
+
+	select {
+	case err := <-result:
+		return err
+	case <-connectCtx.Done():
+		client.Disconnect()
+		return connectCtx.Err()
+	}
+}
+
 func (w *Whatsmeow) ParseJID(jid string) (types.JID, bool) {
+	recipient, ok := parseJID(jid)
+	if !ok && w != nil && w.log != nil {
+		w.log.Warn("Bad jid format, return empty", "jid", jid)
+	}
+	return recipient, ok
+}
+
+func parseJID(jid string) (types.JID, bool) {
 	if jid == "" {
 		return types.NewJID("", types.DefaultUserServer), false
 	}
@@ -291,37 +344,28 @@ func (w *Whatsmeow) ParseJID(jid string) (types.JID, bool) {
 		jid = jid[1:]
 	}
 
-	// Basic only digit check for recipient phone number, we want to remove @server and .session
-	phonenumber := ""
-	phonenumber = strings.Split(jid, "@")[0]
+	// Basic only digit check for recipient phone number, we want to remove @server and .session.
+	phonenumber := strings.Split(jid, "@")[0]
 	phonenumber = strings.Split(phonenumber, ".")[0]
 	phonenumber = strings.Split(phonenumber, ":")[0]
-	b := true
+	if phonenumber == "" {
+		return types.NewJID("", types.DefaultUserServer), false
+	}
 	for _, c := range phonenumber {
 		if c < '0' || c > '9' {
-			b = false
-			break
+			return types.NewJID("", types.DefaultUserServer), false
 		}
-	}
-	if !b {
-		w.log.Warn("Bad jid format, return empty")
-		recipient, _ := types.ParseJID("")
-		return recipient, false
 	}
 
 	if !strings.ContainsRune(jid, '@') {
 		return types.NewJID(jid, types.DefaultUserServer), true
-	} else {
-		recipient, err := types.ParseJID(jid)
-		if err != nil {
-			w.log.Error("Invalid jid", "jid", jid, "error", err)
-			return recipient, false
-		} else if recipient.User == "" {
-			w.log.Error("Invalid jid. No server specified", "jid", jid, "error", err)
-			return recipient, false
-		}
-		return recipient, true
 	}
+
+	recipient, err := types.ParseJID(jid)
+	if err != nil || recipient.User == "" {
+		return recipient, false
+	}
+	return recipient, true
 }
 
 func (w *Whatsmeow) CallHook(myurl string, payload map[string]string, deviceID string) {
@@ -366,14 +410,56 @@ func (w *Whatsmeow) GetClient(deviceID string) (*whatsmeow.Client, error) {
 }
 
 func (w *Whatsmeow) NewKillChannel(deviceID string) {
-	if !w.killchannel.Has(deviceID) {
-		w.killchannel.Set(deviceID, make(chan bool))
+	w.lifecycleMu.Lock()
+	defer w.lifecycleMu.Unlock()
+
+	if w.killchannel == nil {
+		w.killchannel = NewStore[chan bool]()
 	}
+	if killchannel, ok := w.killchannel.Get(deviceID); ok {
+		if w.clientStore != nil {
+			if client, found := w.clientStore.Get(deviceID); found && client != nil && client.IsConnected() {
+				return
+			}
+		}
+		sendKillSignal(killchannel)
+	}
+	w.killchannel.Set(deviceID, make(chan bool, 1))
 }
 
 func (w *Whatsmeow) SendKillChannel(deviceID string) {
+	if w.killchannel == nil {
+		return
+	}
 	if killchannel, ok := w.killchannel.Get(deviceID); ok {
-		killchannel <- true
+		sendKillSignal(killchannel)
+	}
+}
+
+func sendKillSignal(killchannel chan bool) {
+	if killchannel == nil {
+		return
+	}
+	select {
+	case killchannel <- true:
+	default:
+	}
+}
+
+func (w *Whatsmeow) cleanupSession(
+	deviceID string,
+	client *whatsmeow.Client,
+	killchannel chan bool,
+) {
+	w.lifecycleMu.Lock()
+	defer w.lifecycleMu.Unlock()
+
+	if current, ok := w.clientStore.Get(deviceID); ok && current == client {
+		w.clientStore.Delete(deviceID)
+		w.clientHTTP.Delete(deviceID)
+	}
+	if current, ok := w.killchannel.Get(deviceID); ok && current == killchannel {
+		w.killchannel.Delete(deviceID)
 	}
 }
 

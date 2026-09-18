@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"mime"
 	"os"
 	"path/filepath"
 	"slices"
@@ -137,13 +136,14 @@ func (c *Client) EventHandler(rawEvt any) {
 				}
 			}
 
-			data, err := c.WAClient.Download(context.Background(), img)
+			downloadCtx, cancel := providerContext(context.Background())
+			data, err := c.WAClient.Download(downloadCtx, img)
+			cancel()
 			if err != nil {
 				c.wMeow.log.Error("Failed to download image", "device", c.DeviceInfo.Name, "error", err)
 				return
 			}
-			exts, _ := mime.ExtensionsByType(img.GetMimetype())
-			path = fmt.Sprintf("%s/%s%s", userDirectory, evt.Info.ID, exts[0])
+			path = fmt.Sprintf("%s/%s%s", userDirectory, evt.Info.ID, mediaExtension(img.GetMimetype()))
 			err = os.WriteFile(path, data, 0600)
 			if err != nil {
 				c.wMeow.log.Error("Failed to save image", "device", c.DeviceInfo.Name, "error", err)
@@ -167,13 +167,14 @@ func (c *Client) EventHandler(rawEvt any) {
 				}
 			}
 
-			data, err := c.WAClient.Download(context.Background(), audio)
+			downloadCtx, cancel := providerContext(context.Background())
+			data, err := c.WAClient.Download(downloadCtx, audio)
+			cancel()
 			if err != nil {
 				c.wMeow.log.Error("Failed to download audio", "device", c.DeviceInfo.Name, "error", err)
 				return
 			}
-			exts, _ := mime.ExtensionsByType(audio.GetMimetype())
-			path = fmt.Sprintf("%s/%s%s", userDirectory, evt.Info.ID, exts[0])
+			path = fmt.Sprintf("%s/%s%s", userDirectory, evt.Info.ID, mediaExtension(audio.GetMimetype()))
 			err = os.WriteFile(path, data, 0600)
 			if err != nil {
 				c.wMeow.log.Error("Failed to save audio", "device", c.DeviceInfo.Name, "error", err)
@@ -197,18 +198,16 @@ func (c *Client) EventHandler(rawEvt any) {
 				}
 			}
 
-			data, err := c.WAClient.Download(context.Background(), document)
+			downloadCtx, cancel := providerContext(context.Background())
+			data, err := c.WAClient.Download(downloadCtx, document)
+			cancel()
 			if err != nil {
 				c.wMeow.log.Error("Failed to download document", "device", c.DeviceInfo.Name, "error", err)
 				return
 			}
-			extension := ""
-			exts, err := mime.ExtensionsByType(document.GetMimetype())
-			if err != nil {
-				extension = exts[0]
-			} else {
-				filename := document.FileName
-				extension = filepath.Ext(*filename)
+			extension := filepath.Ext(document.GetFileName())
+			if extension == "" {
+				extension = mediaExtension(document.GetMimetype())
 			}
 			path = fmt.Sprintf("%s/%s%s", userDirectory, evt.Info.ID, extension)
 			err = os.WriteFile(path, data, 0600)
