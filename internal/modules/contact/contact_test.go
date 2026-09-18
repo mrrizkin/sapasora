@@ -203,6 +203,11 @@ func TestInMemoryContactRepositoryDefensiveCopiesAndIdentityUpdate(t *testing.T)
 	if err := repository.UpdateContactAddress(context.Background(), storedAddress); err != nil {
 		t.Fatalf("UpdateContactAddress() error = %v", err)
 	}
+	storedAddress.ContactID = contact.ID + 1
+	if err := repository.UpdateContactAddress(context.Background(), storedAddress); !errors.Is(err, ErrContactAddressConflict) {
+		t.Fatalf("cross-contact address update error = %v, want ErrContactAddressConflict", err)
+	}
+	storedAddress.ContactID = contact.ID
 	if _, err := repository.FindContactAddressByIdentity(context.Background(), "tenant-a", address.Identity); !errors.Is(err, ErrContactAddressNotFound) {
 		t.Fatalf("old identity remained indexed: %v", err)
 	}

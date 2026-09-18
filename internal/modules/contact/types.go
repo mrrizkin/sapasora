@@ -222,6 +222,7 @@ type Contact struct {
 	Notes          string            `json:"-"`
 	CreatedAt      time.Time         `json:"created_at"`
 	UpdatedAt      time.Time         `json:"updated_at"`
+	DeletedAt      *time.Time        `json:"-"`
 }
 
 func (c Contact) Valid() error {
@@ -233,6 +234,9 @@ func (c Contact) Valid() error {
 	}
 	if !c.Source.Valid() {
 		return fmt.Errorf("invalid contact source")
+	}
+	if c.DeletedAt != nil && c.DeletedAt.IsZero() {
+		return fmt.Errorf("deleted timestamp is invalid")
 	}
 	return nil
 }
@@ -273,6 +277,7 @@ type ContactAddress struct {
 	Consent           ConsentMetadata `json:"consent"`
 	CreatedAt         time.Time       `json:"created_at"`
 	UpdatedAt         time.Time       `json:"updated_at"`
+	DeletedAt         *time.Time      `json:"-"`
 }
 
 func (a ContactAddress) Valid() error {
@@ -290,6 +295,9 @@ func (a ContactAddress) Valid() error {
 	}
 	if !a.Source.Valid() {
 		return errors.New("invalid contact source")
+	}
+	if a.DeletedAt != nil && a.DeletedAt.IsZero() {
+		return errors.New("deleted timestamp is invalid")
 	}
 	return a.Consent.Valid()
 }
