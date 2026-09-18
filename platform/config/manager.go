@@ -33,6 +33,13 @@ func (cm *ConfigManager) Get(key string, defaultValue ...any) any {
 		return val
 	}
 
+	// Environment variables are also available through their conventional
+	// upper-case, underscore-separated config key.
+	envKey := strings.ToUpper(strings.ReplaceAll(key, ".", "_"))
+	if val, exists := os.LookupEnv(envKey); exists {
+		return val
+	}
+
 	if len(defaultValue) > 0 {
 		return defaultValue[0]
 	}
@@ -216,12 +223,12 @@ func (cm *ConfigManager) LoadStruct(name string, cfg any) error {
 		}
 
 		value, exists := os.LookupEnv(envVar)
-		if !exists {
+		if !exists || (isRequired && strings.TrimSpace(value) == "") {
 			if defaultValue != "" {
 				value = defaultValue
 			} else if isRequired {
 				return fmt.Errorf("required config %q not set", envVar)
-			} else {
+			} else if !exists {
 				continue
 			}
 		}

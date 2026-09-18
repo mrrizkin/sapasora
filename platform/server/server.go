@@ -3,14 +3,17 @@ package server
 
 import (
 	"fmt"
+	"time"
 
 	"sapasora/platform/config"
 	"sapasora/platform/logger"
+	"sapasora/platform/server/security"
 	"sapasora/platform/session"
 	"sapasora/platform/support/debug"
 
 	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/helmet"
 	"github.com/gofiber/fiber/v2/middleware/idempotency"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
@@ -54,9 +57,22 @@ func NewServer(lc fx.Lifecycle, in ServerIn) *Server {
 	app := fiber.New(fiber.Config{
 		Prefork:               in.Config.GetBool("app.prefork", false),
 		AppName:               in.Config.GetString("app.name", "application"),
+		ReadTimeout:           in.Config.GetDuration("server.read_timeout", 15*time.Second),
+		WriteTimeout:          in.Config.GetDuration("server.write_timeout", 30*time.Second),
+		IdleTimeout:           in.Config.GetDuration("server.idle_timeout", 60*time.Second),
+		BodyLimit:             in.Config.GetInt("server.body_limit", 16*1024*1024),
 		DisableStartupMessage: true,
 		ErrorHandler:          errorHandler,
 	})
+
+	app.Use(helmet.New(helmet.Config{
+		ContentSecurityPolicy: security.DefaultCSP(),
+		XFrameOptions:         "DENY",
+		HSTSMaxAge:            31536000,
+		HSTSPreloadEnabled:    true,
+		ReferrerPolicy:        "strict-origin-when-cross-origin",
+		PermissionPolicy:      "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+	}))
 
 	app.Static("/", "public")
 	app.Use(fiberzerolog.New(fiberzerolog.Config{
