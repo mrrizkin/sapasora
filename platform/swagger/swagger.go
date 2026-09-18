@@ -30,6 +30,9 @@ func NewSwagger(in SwaggerIn) *Swagger {
 }
 
 func (s *Swagger) Register(router fiber.Router) {
+	if s.config.GetString("app.env", "development") == "production" {
+		return
+	}
 	router.Get("/docs/api", s.SwaggerUI)
 }
 
