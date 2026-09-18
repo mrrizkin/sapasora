@@ -9,5 +9,7 @@
 // authorization, async jobs, and audit wiring remain integration concerns.
 // Those integrations must map provider identities into ContactAddress through
 // the normalization constructors and keep tenant authorization outside this
-// package.
+// package. Duplicate candidates and merge previews are safe, transport-neutral
+// domain projections; merge mutation requires explicit confirmation and the
+// repository's atomic merge capability.
 package contact

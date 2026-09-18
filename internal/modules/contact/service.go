@@ -38,6 +38,16 @@ type ContactService interface {
 	UnsuppressAddress(context.Context, string, string, SuppressionReason) error
 	IsAddressSendable(context.Context, string, AddressIdentity) (bool, error)
 	IsContactAddressSendable(context.Context, string, string) (bool, error)
+
+	FindDuplicateCandidates(context.Context, string, []AddressIdentity) ([]*DuplicateCandidate, error)
+	ListDuplicateCandidates(context.Context, string, []AddressIdentity) ([]*DuplicateCandidate, error)
+	FindContactDuplicateCandidates(context.Context, string, string) ([]*DuplicateCandidate, error)
+	PreviewMerge(context.Context, string, MergeRequest) (*MergePreview, error)
+	PreviewContactMerge(context.Context, string, MergeRequest) (*MergePreview, error)
+	MergeContacts(context.Context, string, MergeRequest) (*MergeAudit, error)
+	UndoMerge(context.Context, string, string) (*MergeUndoAudit, error)
+	UndoContactMerge(context.Context, string, string) (*MergeUndoAudit, error)
+	ListMergeAudits(context.Context, string) ([]*MergeAudit, error)
 }
 
 // ContactUseCase is the explicit use-case name for integrations that prefer

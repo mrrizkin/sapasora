@@ -58,3 +58,17 @@ HTTP/storage integrations must still apply request/body limits and choose job
 or transaction behavior. HTTP upload/download routes, authorization and
 export permission checks, async jobs, XLSX/mapping support, audit events, and
 expiring URLs remain outside this module.
+
+## Track 5.6 duplicate and identity boundary
+
+`duplicate.go` provides exact matching on canonical `(kind, namespace, value)`
+address identities, but exposes only identity fingerprints and tenant-safe
+contact identifiers in candidate and merge diagnostics. Fuzzy names, raw
+values, cross-tenant lookup, and implicit identity linking are not supported.
+
+Merge preview returns a deterministic confirmation token. The in-memory
+repository applies a confirmed merge atomically only when that token is still
+current, records immutable merge metadata, and supports append-only undo only
+when the moved addresses and target have not changed in a conflicting way.
+Durable adapters must provide the same `MergeRepository` capability
+transactionally. HTTP/UI approval and integration remain deferred.
