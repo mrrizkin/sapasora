@@ -501,15 +501,15 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 
 ## P4.4 Credential/session handling
 
-- [ ] Encrypt credential at rest.
+- [x] Encrypt credential at rest.
 - [ ] Encrypt provider session at rest.
-- [ ] Simpan secret reference, bukan secret di DTO.
-- [ ] Implementasikan credential rotation.
-- [ ] Implementasikan credential revoke.
-- [ ] Implementasikan credential expiry.
-- [ ] Redact secret pada log.
-- [ ] Redact secret pada diagnostics.
-- [ ] One-time reveal saat creation/rotation.
+- [x] Simpan secret reference, bukan secret di DTO.
+- [x] Implementasikan credential rotation.
+- [x] Implementasikan credential revoke.
+- [x] Implementasikan credential expiry.
+- [x] Redact secret pada log.
+- [x] Redact secret pada diagnostics.
+- [x] One-time reveal saat creation/rotation.
 - [ ] Tambahkan access audit untuk credential.
 - [ ] Tambahkan purge setelah disconnect/delete.
 
