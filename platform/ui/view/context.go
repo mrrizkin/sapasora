@@ -60,7 +60,7 @@ type CombinedContext struct {
 	done     chan struct{}
 	err      error
 	mu       sync.RWMutex
-	cancel   context.CancelFunc
+	once     sync.Once
 }
 
 func (c *CombinedContext) Deadline() (deadline time.Time, ok bool) {
@@ -100,43 +100,24 @@ func (c *CombinedContext) Value(key any) any {
 	return nil
 }
 
-// startWatching monitors all contexts for cancellation
+// startWatching monitors all contexts for cancellation. The completion channel
+// is closed only after one of the source contexts is actually done; launching
+// watcher goroutines must not itself signal cancellation.
 func (c *CombinedContext) startWatching() {
-	if len(c.contexts) == 0 {
-		return
-	}
-
-	// Create a goroutine to watch for cancellation from any context
-	go func() {
-		defer func() {
+	for _, ctx := range c.contexts {
+		if ctx.Done() == nil {
+			continue
+		}
+		go func(ctx context.Context) {
+			<-ctx.Done()
 			c.mu.Lock()
-			close(c.done)
-			c.mu.Unlock()
-		}()
-
-		// Use select to wait for any context to be done
-		cases := make([]any, len(c.contexts))
-		for i, ctx := range c.contexts {
-			cases[i] = ctx.Done()
-		}
-
-		// Wait for any context to be cancelled
-		for _, ctx := range c.contexts {
-			if ctx.Done() != nil {
-				go func(ctx context.Context) {
-					<-ctx.Done()
-					c.mu.Lock()
-					if c.err == nil {
-						c.err = ctx.Err()
-					}
-					c.mu.Unlock()
-					if c.cancel != nil {
-						c.cancel()
-					}
-				}(ctx)
+			if c.err == nil {
+				c.err = ctx.Err()
 			}
-		}
-	}()
+			c.mu.Unlock()
+			c.once.Do(func() { close(c.done) })
+		}(ctx)
+	}
 }
 
 func CombineContexts(contexts ...context.Context) context.Context {
