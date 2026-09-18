@@ -99,6 +99,21 @@ func (r *DeviceRepositoryImpl) GetDeviceByPublicIDForUser(
 	return &result, q.Error
 }
 
+// GetDeletedDeviceByPublicIDForUser is scoped to the owner and is used only to
+// make a repeated DELETE a safe no-op. Normal lookups remain default-scoped.
+func (r *DeviceRepositoryImpl) GetDeletedDeviceByPublicIDForUser(
+	ctx context.Context,
+	publicID string,
+	userID uint,
+) (*Device, error) {
+	var result Device
+	q := r.db.WithContext(ctx).
+		Unscoped().
+		Where("public_id = ? AND user_id = ?", publicID, userID).
+		First(&result)
+	return &result, q.Error
+}
+
 // GetDeviceByToken authenticates a token against its device owner relationship.
 //
 // The current schema has no workspace_id. Until a workspace relation exists, the

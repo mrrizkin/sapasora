@@ -104,6 +104,19 @@ func (r *DeviceTokenRepositoryImpl) GetDeviceTokenByDeviceID(
 	return &result, q.Error
 }
 
+// ListDeviceTokensByDeviceID returns every non-deleted credential owned by a device.
+// GORM's default scope excludes already revoked/soft-deleted credentials.
+func (r *DeviceTokenRepositoryImpl) ListDeviceTokensByDeviceID(
+	ctx context.Context,
+	deviceID uint,
+) ([]*DeviceToken, error) {
+	var tokens []*DeviceToken
+	err := r.db.WithContext(ctx).
+		Where("device_id = ?", deviceID).
+		Find(&tokens).Error
+	return tokens, err
+}
+
 func (r *DeviceTokenRepositoryImpl) UpdateDeviceToken(
 	ctx context.Context,
 	devicetoken *DeviceToken,

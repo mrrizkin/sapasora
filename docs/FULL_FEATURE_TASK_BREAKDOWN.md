@@ -144,17 +144,17 @@
 
 ## T0.8 Delete/disconnect device harus lengkap
 
-- [ ] Definisikan state machine deletion device.
+- [x] Definisikan state machine deletion device.
 - [ ] Stop accepting new outbound jobs untuk device yang akan dihapus.
 - [ ] Drain atau cancel job yang masih eligible.
-- [ ] Disconnect provider client aktif.
-- [ ] Revoke semua credential device.
+- [x] Disconnect provider client aktif.
+- [x] Revoke semua credential device.
 - [ ] Hapus/rotate provider session sesuai retention policy.
 - [ ] Hapus atau pindahkan media sesuai retention policy.
 - [ ] Emit audit event.
 - [ ] Emit device deleted event.
-- [ ] Pastikan restart tidak menghidupkan device yang sudah dihapus.
-- [ ] Tambahkan integration test delete dengan client aktif.
+- [x] Pastikan restart tidak menghidupkan device yang sudah dihapus.
+- [x] Tambahkan integration test delete dengan client aktif.
 
 ## T0.9 Startup dan lifecycle provider
 
