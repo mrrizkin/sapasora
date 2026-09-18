@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -15,6 +16,24 @@ type fixedClock struct{ now time.Time }
 
 func (c *fixedClock) Now() time.Time                 { return c.now }
 func (c *fixedClock) Advance(duration time.Duration) { c.now = c.now.Add(duration) }
+
+type recordingAuditor struct {
+	mu     sync.Mutex
+	events []AccessAuditEvent
+}
+
+func (a *recordingAuditor) RecordAccess(_ context.Context, event AccessAuditEvent) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.events = append(a.events, event)
+	return nil
+}
+
+func (a *recordingAuditor) Events() []AccessAuditEvent {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]AccessAuditEvent(nil), a.events...)
+}
 
 func testEngine(t *testing.T, clock *fixedClock, current string, keys map[string][]byte) (*Engine, *StaticKeyring) {
 	t.Helper()
@@ -186,6 +205,111 @@ func TestServiceExpiryIsEnforcedDeterministically(t *testing.T) {
 	clock.Advance(time.Minute)
 	if _, err := service.Reveal(context.Background(), "credential-expiring"); !errors.Is(err, ErrExpired) {
 		t.Fatalf("expired reveal error = %v, want expired", err)
+	}
+}
+
+func TestServiceAuditsSecretLifecycleWithoutSecretMaterial(t *testing.T) {
+	clock := &fixedClock{now: time.Date(2026, 4, 5, 6, 7, 8, 0, time.UTC)}
+	engine, keyring := testEngine(t, clock, "v1", map[string][]byte{
+		"v1": testKey(1),
+		"v2": testKey(2),
+	})
+	auditor := &recordingAuditor{}
+	service, err := NewServiceWithAudit(engine, NewMemoryStore(), clock.Now, auditor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Store(context.Background(), "audit-1", "oauth", []byte("audit-secret"), nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := keyring.SetCurrent("v2"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Rotate(context.Background(), "audit-1"); err != nil {
+		t.Fatal(err)
+	}
+	revealed, err := service.Reveal(context.Background(), "audit-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	revealed.Wipe()
+	if err := service.Revoke(context.Background(), "audit-1"); err != nil {
+		t.Fatal(err)
+	}
+
+	events := auditor.Events()
+	if len(events) != 4 {
+		t.Fatalf("audit event count = %d, want 4", len(events))
+	}
+	wantActions := []string{AuditActionStore, AuditActionRotate, AuditActionReveal, AuditActionRevoke}
+	for index, event := range events {
+		if event.SecretID != "audit-1" || event.Kind != "oauth" || event.Action != wantActions[index] || event.Outcome != AuditOutcomeSuccess || !event.Timestamp.Equal(clock.now) {
+			t.Fatalf("audit event %d = %+v", index, event)
+		}
+		encoded, err := json.Marshal(event)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(encoded, &fields); err != nil {
+			t.Fatal(err)
+		}
+		if len(fields) != 5 {
+			t.Fatalf("audit event fields = %v, want only contract fields", fields)
+		}
+		for _, field := range []string{"secret_id", "kind", "action", "outcome", "timestamp"} {
+			if _, ok := fields[field]; !ok {
+				t.Fatalf("audit event missing field %q: %s", field, encoded)
+			}
+		}
+		if strings.Contains(string(encoded), "audit-secret") || strings.Contains(string(encoded), "ciphertext") {
+			t.Fatalf("audit event contains secret material: %s", encoded)
+		}
+	}
+}
+
+func TestServicePurgeRemovesOnlyRevokedOrExpiredRecords(t *testing.T) {
+	clock := &fixedClock{now: time.Date(2026, 5, 6, 7, 8, 9, 0, time.UTC)}
+	engine, _ := testEngine(t, clock, "v1", map[string][]byte{"v1": testKey(1)})
+	store := NewMemoryStore()
+	service, err := NewService(engine, store, clock.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Store(context.Background(), "active", "credential", []byte("active-secret"), nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Store(context.Background(), "revoked", "credential", []byte("revoked-secret"), nil); err != nil {
+		t.Fatal(err)
+	}
+	expiredAt := clock.now
+	if _, err := service.Store(context.Background(), "expired", "credential", []byte("expired-secret"), &expiredAt); err != nil {
+		t.Fatal(err)
+	}
+	futureAt := clock.now.Add(time.Hour)
+	if _, err := service.Store(context.Background(), "future", "credential", []byte("future-secret"), &futureAt); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Revoke(context.Background(), "revoked"); err != nil {
+		t.Fatal(err)
+	}
+
+	removed, err := service.Purge(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if removed != 2 {
+		t.Fatalf("purged records = %d, want 2", removed)
+	}
+	for _, id := range []string{"revoked", "expired"} {
+		if _, err := store.Get(context.Background(), id); !errors.Is(err, ErrSecretNotFound) {
+			t.Fatalf("purged %q lookup error = %v, want not found", id, err)
+		}
+	}
+	for _, id := range []string{"active", "future"} {
+		if _, err := store.Get(context.Background(), id); err != nil {
+			t.Fatalf("eligible %q was removed: %v", id, err)
+		}
 	}
 }
 

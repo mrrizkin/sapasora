@@ -510,8 +510,8 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 - [x] Redact secret pada log.
 - [x] Redact secret pada diagnostics.
 - [x] One-time reveal saat creation/rotation.
-- [ ] Tambahkan access audit untuk credential.
-- [ ] Tambahkan purge setelah disconnect/delete.
+- [x] Tambahkan access audit untuk credential.
+- [x] Tambahkan purge setelah disconnect/delete.
 
 ## P4.5 WhatsApp official
 

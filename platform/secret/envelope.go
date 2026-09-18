@@ -28,16 +28,17 @@ const (
 )
 
 var (
-	ErrInvalidKey      = errors.New("invalid secret encryption key")
-	ErrInvalidEnvelope = errors.New("invalid secret envelope")
-	ErrKeyNotFound     = errors.New("secret encryption key not found")
-	ErrAuthentication  = errors.New("secret envelope authentication failed")
-	ErrExpired         = errors.New("secret has expired")
-	ErrInvalidSecret   = errors.New("invalid secret")
-	ErrSecretNotFound  = errors.New("secret not found")
-	ErrSecretRevoked   = errors.New("secret has been revoked")
-	ErrAlreadyRevealed = errors.New("secret has already been revealed")
-	ErrSecretConflict  = errors.New("secret store conflict")
+	ErrInvalidKey             = errors.New("invalid secret encryption key")
+	ErrInvalidEnvelope        = errors.New("invalid secret envelope")
+	ErrKeyNotFound            = errors.New("secret encryption key not found")
+	ErrAuthentication         = errors.New("secret envelope authentication failed")
+	ErrExpired                = errors.New("secret has expired")
+	ErrInvalidSecret          = errors.New("invalid secret")
+	ErrSecretNotFound         = errors.New("secret not found")
+	ErrSecretRevoked          = errors.New("secret has been revoked")
+	ErrAlreadyRevealed        = errors.New("secret has already been revealed")
+	ErrSecretConflict         = errors.New("secret store conflict")
+	ErrSecretPurgeUnsupported = errors.New("secret store does not support purge")
 )
 
 // Key is an encryption key held by a Keyring. Material is never serialized by
