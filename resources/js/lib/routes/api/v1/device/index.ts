@@ -115,69 +115,69 @@ getForm.head = (id: string, options?: RouteQueryOptions): RouteFormDefinition<'h
   method: 'head',
 });
 /**
- * @see device/internal/app/http/controllers/device/device.go:180
- * @route /api/v1/device/:token/token
+ * @see device/internal/app/http/controllers/device/device.go:200
+ * @route /api/v1/device/by-token
  */
-export const get_device_by_token = (token: string, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-  url: get_device_by_token.url(token, options),
+export const get_device_by_token = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+  url: get_device_by_token.url(options),
   method: 'get',
 });
 
 get_device_by_token.definition = {
   methods: ['get', 'head'],
-  url: '/api/v1/device/:token/token',
+  url: '/api/v1/device/by-token',
 } satisfies RouteDefinition<['get', 'head']>;
 
 /**
- * @see device/internal/app/http/controllers/device/device.go:180
- * @route /api/v1/device/:token/token
+ * @see device/internal/app/http/controllers/device/device.go:200
+ * @route /api/v1/device/by-token
  */
-get_device_by_token.url = (token: string, options?: RouteQueryOptions) => {
-  return get_device_by_token.definition.url.replace(':token', encodeURIComponent(token)) + queryParams(options);
+get_device_by_token.url = (options?: RouteQueryOptions) => {
+  return get_device_by_token.definition.url + queryParams(options);
 };
 
 /**
- * @see device/internal/app/http/controllers/device/device.go:180
- * @route /api/v1/device/:token/token
+ * @see device/internal/app/http/controllers/device/device.go:200
+ * @route /api/v1/device/by-token
  */
-get_device_by_token.get = (token: string, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-  url: get_device_by_token.url(token, options),
+get_device_by_token.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+  url: get_device_by_token.url(options),
   method: 'get',
 });
 
 /**
- * @see device/internal/app/http/controllers/device/device.go:180
- * @route /api/v1/device/:token/token
+ * @see device/internal/app/http/controllers/device/device.go:200
+ * @route /api/v1/device/by-token
  */
-get_device_by_token.head = (token: string, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-  url: get_device_by_token.url(token, options),
+get_device_by_token.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+  url: get_device_by_token.url(options),
   method: 'head',
 });
 
 /**
- * @see device/internal/app/http/controllers/device/device.go:180
- * @route /api/v1/device/:token/token
+ * @see device/internal/app/http/controllers/device/device.go:200
+ * @route /api/v1/device/by-token
  */
-export const get_device_by_tokenForm = (token: string, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-  action: get_device_by_token.url(token, options),
+export const get_device_by_tokenForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+  action: get_device_by_token.url(options),
   method: 'get',
 });
 
 /**
- * @see device/internal/app/http/controllers/device/device.go:180
- * @route /api/v1/device/:token/token
+ * @see device/internal/app/http/controllers/device/device.go:200
+ * @route /api/v1/device/by-token
  */
-get_device_by_tokenForm.get = (token: string, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-  action: get_device_by_token.url(token, options),
+get_device_by_tokenForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+  action: get_device_by_token.url(options),
   method: 'get',
 });
 
 /**
- * @see device/internal/app/http/controllers/device/device.go:180
- * @route /api/v1/device/:token/token
+ * @see device/internal/app/http/controllers/device/device.go:200
+ * @route /api/v1/device/by-token
  */
-get_device_by_tokenForm.head = (token: string, options?: RouteQueryOptions): RouteFormDefinition<'head'> => ({
-  action: get_device_by_token.url(token, options),
+get_device_by_tokenForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'head'> => ({
+  action: get_device_by_token.url(options),
   method: 'head',
 });
 /**

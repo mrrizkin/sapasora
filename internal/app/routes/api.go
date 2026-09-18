@@ -54,8 +54,10 @@ func APIRouter(
 		// Device
 		device := v1.Group("/device", protected.Handle).Name("device.")
 		device.Get("/", deviceController.List).Name("list")
+		// Device-token authentication is header-only. The controller reads the
+		// device resolved by AuthenticationMiddleware from c.Locals("device").
+		device.Get("/by-token", deviceController.GetDeviceByToken).Name("get_device_by_token")
 		device.Get("/:id", deviceController.Get).Name("get")
-		device.Get("/:token/token", deviceController.GetDeviceByToken).Name("get_device_by_token")
 		device.Post("/", deviceController.Store).Name("store")
 		device.Put("/:id", deviceController.Update).Name("update")
 		device.Put("/:id/status", deviceController.UpdateStatus).Name("update_status")

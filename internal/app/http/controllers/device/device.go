@@ -2,13 +2,11 @@
 package device
 
 import (
-	"context"
 	"fmt"
 
 	"sapasora/internal/app/http/controllers"
 	"sapasora/internal/app/policies"
 	"sapasora/internal/modules/account"
-	"sapasora/internal/modules/apikey"
 	"sapasora/internal/modules/device"
 	"sapasora/internal/modules/permission"
 	"sapasora/platform/satpam"
@@ -192,61 +190,23 @@ func (c *DeviceController) Get(ctx *fiber.Ctx) error {
 }
 
 // GetDeviceByToken godoc
-// @Summary      Get device by token
-// @Description  Get device by token
+// @Summary      Get device for the authenticated device token
+// @Description  Returns the device resolved by the Authorization header. The device token is never accepted in the URL.
 // @Tags         Device
-// @Accept       json
 // @Produce      json
-// @Param        token  path  string true "Token"
+// @Security     X-API-KEY
 // @Success      200 {object} DeviceResponse
-// @Router       /api/v1/device/{token}/token [get]
+// @Failure      401 {object} map[string]string
+// @Router       /api/v1/device/by-token [get]
 func (c *DeviceController) GetDeviceByToken(ctx *fiber.Ctx) error {
-	token := ctx.Params("token")
-
-	var (
-		device *device.Device
-		err    error
-	)
-
-	// API-key and session callers carry an owner scope. Use it when the
-	// optional repository/service extension is available; device-token callers
-	// have no separate owner scope and use the token/device owner relation.
-	if key, ok := ctx.Locals("apikey").(*apikey.APIKey); ok {
-		device, err = getDeviceByTokenForUser(c.deviceService, ctx.Context(), token, key.UserID)
-	} else if account, ok := ctx.Locals("account").(*account.Account); ok {
-		device, err = getDeviceByTokenForUser(c.deviceService, ctx.Context(), token, account.ID)
-	} else {
-		device, err = c.deviceService.GetDeviceByToken(ctx.Context(), token)
-	}
-	if err != nil {
-		return err
-	}
-
-	gate := satpam.New(&policies.CanGetDevice{}).AddResource("device", device)
-	subject, err := c.GetSubject(ctx, "apikey", "account")
-	if err != nil {
-		return err
-	}
-	if subject == nil {
+	// AuthenticationMiddleware is the only component allowed to resolve a
+	// device token. Do not read a token from path, query, or request body.
+	device, ok := ctx.Locals("device").(*device.Device)
+	if !ok || device == nil {
 		return fiber.ErrUnauthorized
 	}
 
-	gate.AuthorizeAllPermissions(subject)
-
 	return ctx.JSON(DeviceResponse(device))
-}
-
-func getDeviceByTokenForUser(
-	service device.DeviceService,
-	ctx context.Context,
-	token string,
-	userID uint,
-) (*device.Device, error) {
-	scoped, ok := service.(device.DeviceTokenOwnerScopedService)
-	if !ok {
-		return nil, fiber.ErrUnauthorized
-	}
-	return scoped.GetDeviceByTokenForUser(ctx, token, userID)
 }
 
 // Store godoc
