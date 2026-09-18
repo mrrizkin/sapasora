@@ -69,9 +69,9 @@ func (l *GormLoggerImpl) Trace(
 	case err != nil && l.logMode >= logger.Error && (!errors.Is(err, gorm.ErrRecordNotFound) || !l.IgnoreRecordNotFoundError):
 		sql, rows := fc()
 		if rows == -1 {
-			l.Logger.Trace(sql, "error", err)
+			l.Logger.Trace("SQL query failed", "sql", sql, "error", err)
 		} else {
-			l.Logger.Trace(sql, "error", err, "rows", rows, "time", elapsed)
+			l.Logger.Trace("SQL query failed", "sql", sql, "error", err, "rows", rows, "time", elapsed)
 		}
 	case elapsed > l.SlowThreshold && l.SlowThreshold != 0 && l.logMode >= logger.Warn:
 		sql, rows := fc()
@@ -84,9 +84,9 @@ func (l *GormLoggerImpl) Trace(
 	case l.logMode == logger.Info:
 		sql, rows := fc()
 		if rows == -1 {
-			l.Logger.Info(sql)
+			l.Logger.Info("SQL query", "sql", sql)
 		} else {
-			l.Logger.Info(sql, "rows", rows, "time", elapsed)
+			l.Logger.Info("SQL query", "sql", sql, "rows", rows, "time", elapsed)
 		}
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"sapasora/internal/modules/device"
+	"sapasora/platform/config"
 	"sapasora/platform/logger"
 	"sapasora/platform/support/arr"
 	"slices"
@@ -22,8 +23,9 @@ import (
 )
 
 type WhatsappServiceImpl struct {
-	wMeow *Whatsmeow
-	log   *logger.Logger
+	wMeow            *Whatsmeow
+	log              *logger.Logger
+	mediaUploadLimit int
 }
 
 // NewWhatsappService creates a new Implementation of WhatsappService
@@ -31,10 +33,17 @@ type WhatsappServiceImpl struct {
 func NewWhatsappService(
 	wMeow *Whatsmeow,
 	log *logger.Logger,
+	cfg config.Config,
 ) WhatsappService {
+	mediaUploadLimit := cfg.GetInt("server.media_upload_limit", defaultMediaUploadLimit)
+	if mediaUploadLimit <= 0 {
+		mediaUploadLimit = defaultMediaUploadLimit
+	}
+
 	return &WhatsappServiceImpl{
-		wMeow: wMeow,
-		log:   log,
+		wMeow:            wMeow,
+		log:              log,
+		mediaUploadLimit: mediaUploadLimit,
 	}
 }
 
@@ -407,7 +416,7 @@ func (w *WhatsappServiceImpl) SendAudio(
 
 	var uploaded whatsmeow.UploadResponse
 
-	dataURL, err := decodeMediaDataURL(payload.Audio, "audio/ogg")
+	dataURL, err := decodeMediaDataURL(payload.Audio, w.mediaUploadLimit, "audio/ogg")
 	if err != nil {
 		return nil, errors.New(
 			"audio data should be a valid base64 data URL with MIME type audio/ogg",
@@ -683,7 +692,7 @@ func (w *WhatsappServiceImpl) SendDocument(
 	}
 
 	var uploaded whatsmeow.UploadResponse
-	dataURL, err := decodeMediaDataURL(payload.Document, "application/octet-stream")
+	dataURL, err := decodeMediaDataURL(payload.Document, w.mediaUploadLimit, "application/octet-stream")
 	if err != nil {
 		return nil, errors.New(
 			"document data should be a valid base64 data URL with MIME type application/octet-stream",
@@ -776,7 +785,7 @@ func (w *WhatsappServiceImpl) SendImage(
 	}
 
 	var uploaded whatsmeow.UploadResponse
-	dataURL, err := decodeMediaDataURL(payload.Image, "image/*")
+	dataURL, err := decodeMediaDataURL(payload.Image, w.mediaUploadLimit, "image/*")
 	if err != nil {
 		return nil, errors.New(
 			"image data should be a valid base64 data URL with an image MIME type",
@@ -1027,7 +1036,7 @@ func (w *WhatsappServiceImpl) SendSticker(
 	}
 
 	var uploaded whatsmeow.UploadResponse
-	dataURL, err := decodeMediaDataURL(payload.Sticker)
+	dataURL, err := decodeMediaDataURL(payload.Sticker, w.mediaUploadLimit)
 	if err != nil {
 		return nil, errors.New(
 			"sticker data should be a valid base64 data URL",
@@ -1185,7 +1194,7 @@ func (w *WhatsappServiceImpl) SendVideo(
 	}
 
 	var uploaded whatsmeow.UploadResponse
-	dataURL, err := decodeMediaDataURL(payload.Video, "video/*")
+	dataURL, err := decodeMediaDataURL(payload.Video, w.mediaUploadLimit, "video/*")
 	if err != nil {
 		return nil, errors.New(
 			"video data should be a valid base64 data URL with a video MIME type",

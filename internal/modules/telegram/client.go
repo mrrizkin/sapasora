@@ -7,6 +7,7 @@ import (
 	"sapasora/internal/modules/device"
 	"sapasora/platform/config"
 	"sapasora/platform/logger"
+	"sync"
 	"time"
 
 	"codeberg.org/mrrizkin/nihil"
@@ -20,12 +21,30 @@ type TDLibDeviceInfo struct {
 	Webhook nihil.NilString `json:"webhook"`
 }
 
+type ClientState string
+
+const (
+	ClientStateConnecting    ClientState = "connecting"
+	ClientStateConnected     ClientState = "connected"
+	ClientStateDisconnecting ClientState = "disconnecting"
+	ClientStateDisconnected  ClientState = "disconnected"
+	ClientStateError         ClientState = "error"
+)
+
 type Client struct {
+	mu         sync.RWMutex
 	client     *client.Client
 	deviceInfo *TDLibDeviceInfo
 	params     *client.SetTdlibParametersRequest
+	state      ClientState
 
 	log *logger.Logger
+
+	// newClient is injectable so lifecycle behavior can be tested without a
+	// running TDLib process. Production clients use client.NewClient.
+	newClient func(client.AuthorizationStateHandler, client.Option) (*client.Client, error)
+	getMe     func(context.Context) (*client.User, error)
+	onClosed  func()
 }
 
 func NewClient(config config.Config, device *device.Device, log *logger.Logger) *Client {
@@ -51,12 +70,44 @@ func NewClient(config config.Config, device *device.Device, log *logger.Logger) 
 			Events:  device.Events,
 			Webhook: device.Webhook,
 		},
-		log: log,
+		state: ClientStateDisconnected,
+		log:   log,
+		newClient: func(
+			authorizer client.AuthorizationStateHandler,
+			option client.Option,
+		) (*client.Client, error) {
+			return client.NewClient(authorizer, option)
+		},
 	}
 }
 
+func (c *Client) State() ClientState {
+	if c == nil {
+		return ClientStateDisconnected
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.state == "" {
+		return ClientStateDisconnected
+	}
+	return c.state
+}
+
+func (c *Client) markConnectError() {
+	c.mu.Lock()
+	if c.state == ClientStateConnecting {
+		c.state = ClientStateError
+	}
+	c.mu.Unlock()
+}
+
 func (c *Client) TDLib() (*client.Client, error) {
-	if c.client == nil {
+	if c == nil {
+		return nil, errors.New("client not initialized")
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.client == nil || c.state != ClientStateConnected {
 		return nil, errors.New("client not initialized")
 	}
 	return c.client, nil
@@ -66,10 +117,56 @@ func (c *Client) Params() *client.SetTdlibParametersRequest {
 	return c.params
 }
 
+// GetMe returns the authenticated Telegram identity used as the device JID.
+// The hook keeps lifecycle tests independent from a native TDLib process.
+func (c *Client) GetMe(ctx context.Context) (*client.User, error) {
+	if c == nil {
+		return nil, ErrNotConnected
+	}
+	if c.getMe != nil {
+		return c.getMe(ctx)
+	}
+	tele, err := c.TDLib()
+	if err != nil {
+		return nil, err
+	}
+	return tele.GetMe(ctx)
+}
+
+func (c *Client) SetClosedHandler(handler func()) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	c.onClosed = handler
+	c.mu.Unlock()
+}
+
 func (c *Client) Connect(
 	qrCodeHandler func(deviceID string, link string) error,
 	timeout time.Duration,
 ) error {
+	if c == nil {
+		return ErrNotConnected
+	}
+
+	c.mu.Lock()
+	if c.state == ClientStateConnected || c.state == ClientStateConnecting || c.state == ClientStateDisconnecting {
+		c.mu.Unlock()
+		return ErrClientAlreadyConnected
+	}
+	c.state = ClientStateConnecting
+	factory := c.newClient
+	if factory == nil {
+		factory = func(
+			authorizer client.AuthorizationStateHandler,
+			option client.Option,
+		) (*client.Client, error) {
+			return client.NewClient(authorizer, option)
+		}
+	}
+	c.mu.Unlock()
+
 	start := time.Now()
 	authorizer := client.QrAuthorizer(c.params, func(link string) error {
 		if time.Since(start) > timeout {
@@ -84,44 +181,89 @@ func (c *Client) Connect(
 
 	eventHandler := client.WithResultHandler(client.NewCallbackResultHandler(c.EventHandler))
 
-	tdLibClient, err := client.NewClient(authorizer, eventHandler)
+	tdLibClient, err := factory(authorizer, eventHandler)
 	if err != nil {
+		c.markConnectError()
 		return err
 	}
 
 	if tdLibClient == nil {
+		c.markConnectError()
 		return errors.New("tdlib client is nil")
 	}
 
+	c.mu.Lock()
+	if c.state != ClientStateConnecting {
+		c.mu.Unlock()
+		return ErrNotConnected
+	}
 	c.client = tdLibClient
+	c.state = ClientStateConnected
+	c.mu.Unlock()
 
 	return nil
 }
 
 func (c *Client) Disconnect(ctx context.Context) error {
-	if c == nil || c.client == nil {
+	if c == nil {
 		return nil
 	}
-	_, err := c.client.Close(ctx)
-	return err
+
+	c.mu.Lock()
+	if c.client == nil {
+		c.state = ClientStateDisconnected
+		c.mu.Unlock()
+		return nil
+	}
+	tele := c.client
+	c.state = ClientStateDisconnecting
+	c.mu.Unlock()
+
+	// Do not hold c.mu while Close waits for TDLib's closed authorization
+	// update; EventHandler needs the same lock to consume that update.
+	_, err := tele.Close(ctx)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err != nil {
+		if c.client == tele {
+			c.state = ClientStateError
+		}
+		return err
+	}
+	if c.client == tele {
+		c.client = nil
+		c.state = ClientStateDisconnected
+	}
+	return nil
 }
 
 func (c *Client) EventHandler(result client.Type) {
-	// switch result.GetType() {
-	// default:
-	// 	c.log.Warn("Unknown event", "event", result.GetType())
-	// }
+	update, ok := result.(*client.UpdateAuthorizationState)
+	if !ok || update.AuthorizationState == nil {
+		return
+	}
+	if update.AuthorizationState.AuthorizationStateConstructor() == client.ConstructorAuthorizationStateClosed {
+		c.mu.Lock()
+		c.client = nil
+		c.state = ClientStateDisconnected
+		onClosed := c.onClosed
+		c.mu.Unlock()
+		if onClosed != nil {
+			onClosed()
+		}
+	}
 }
 
 func (c *Client) IsConnected(ctx context.Context) bool {
-	return c != nil && c.client != nil
+	return c != nil && c.State() == ClientStateConnected
 }
 
 func (c *Client) IsLoggedIn(ctx context.Context) bool {
-	if c == nil || c.client == nil {
+	tele, err := c.TDLib()
+	if err != nil {
 		return false
 	}
-	authState, err := c.client.GetAuthorizationState(ctx)
+	authState, err := tele.GetAuthorizationState(ctx)
 	if err != nil {
 		return false
 	}
@@ -130,20 +272,22 @@ func (c *Client) IsLoggedIn(ctx context.Context) bool {
 }
 
 func (c *Client) GetUserByPhoneNumber(ctx context.Context, phone string) (*client.User, error) {
-	if c == nil || c.client == nil {
+	tele, err := c.TDLib()
+	if err != nil {
 		return nil, ErrNotConnected
 	}
-	return c.client.SearchUserByPhoneNumber(ctx, &client.SearchUserByPhoneNumberRequest{
+	return tele.SearchUserByPhoneNumber(ctx, &client.SearchUserByPhoneNumberRequest{
 		PhoneNumber: phone,
 	})
 
 }
 
 func (c *Client) GetUserByUsername(ctx context.Context, username string) (*client.User, error) {
-	if c == nil || c.client == nil {
+	tele, err := c.TDLib()
+	if err != nil {
 		return nil, ErrNotConnected
 	}
-	result, err := c.client.SearchPublicChat(ctx, &client.SearchPublicChatRequest{
+	result, err := tele.SearchPublicChat(ctx, &client.SearchPublicChatRequest{
 		Username: username,
 	})
 	if err != nil {
@@ -154,7 +298,7 @@ func (c *Client) GetUserByUsername(ctx context.Context, username string) (*clien
 		return nil, errors.New("user not found")
 	}
 
-	user, err := c.client.GetUser(ctx, &client.GetUserRequest{
+	user, err := tele.GetUser(ctx, &client.GetUserRequest{
 		UserId: result.Id,
 	})
 	if err != nil {

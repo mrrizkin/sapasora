@@ -38,6 +38,7 @@ func NewAPIKeyController(
 // @Param        page    query  int    false "Page"
 // @Param        limit   query  int    false "Limit"
 // @Success      200 {object} APIKeyListResponse
+// @Security     Authorization
 // @Router       /api/v1/api-key [get]
 func (c *APIKeyController) List(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanListAPIKey{})
@@ -69,6 +70,7 @@ func (c *APIKeyController) List(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        id  path  string true "ID"
 // @Success      200 {object} APIKeyResponse
+// @Security     Authorization
 // @Router       /api/v1/api-key/{id} [get]
 func (c *APIKeyController) Get(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
@@ -102,6 +104,7 @@ func (c *APIKeyController) Get(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        apikey  body  APIKeyStoreRequest true "Body"
 // @Success      200 {object} APIKeyResponse
+// @Security     Authorization
 // @Router       /api/v1/api-key [post]
 func (c *APIKeyController) Store(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanStoreAPIKey{})
@@ -155,6 +158,7 @@ func (c *APIKeyController) Store(ctx *fiber.Ctx) error {
 // @Param        id  path  string true "ID"
 // @Param        apikey  body  APIKeyUpdateRequest true "Body"
 // @Success      200 {object} APIKeyResponse
+// @Security     Authorization
 // @Router       /api/v1/api-key/{id} [put]
 func (c *APIKeyController) Update(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
@@ -200,6 +204,7 @@ func (c *APIKeyController) Update(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        id  path  string true "ID"
 // @Success      200 {object} APIKeyResponse
+// @Security     Authorization
 // @Router       /api/v1/api-key/{id} [delete]
 func (c *APIKeyController) Destroy(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")

@@ -42,6 +42,7 @@ func NewDeviceTokenController(
 // @Param        page    query  int    false "Page"
 // @Param        limit   query  int    false "Limit"
 // @Success      200 {object} DeviceTokenListResponse
+// @Security     Authorization
 // @Router       /api/v1/devicetoken [get]
 func (c *DeviceTokenController) List(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanListDeviceToken{})
@@ -72,6 +73,7 @@ func (c *DeviceTokenController) List(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        id  path  string true "ID"
 // @Success      200 {object} DeviceTokenResponse
+// @Security     Authorization
 // @Router       /api/v1/devicetoken/{id} [get]
 func (c *DeviceTokenController) Get(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
@@ -106,6 +108,7 @@ func (c *DeviceTokenController) Get(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        devicetoken  body  DeviceTokenStoreRequest true "Body"
 // @Success      200 {object} DeviceTokenResponse
+// @Security     Authorization
 // @Router       /api/v1/devicetoken [post]
 func (c *DeviceTokenController) Store(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanStoreDeviceToken{})
@@ -162,6 +165,7 @@ func (c *DeviceTokenController) Store(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        id  path  string true "ID"
 // @Success      200 {object} DeviceTokenResponse
+// @Security     Authorization
 // @Router       /api/v1/devicetoken/{id} [delete]
 func (c *DeviceTokenController) Destroy(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
