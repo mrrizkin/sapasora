@@ -657,9 +657,9 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 - [ ] Upload XLSX bila diperlukan.
 - [ ] Preview import.
 - [ ] Mapping columns.
-- [ ] Validate rows.
-- [ ] Detect duplicate.
-- [ ] Show row-level errors.
+- [x] Validate rows.
+- [x] Detect duplicate.
+- [x] Show row-level errors.
 - [ ] Async import job.
 - [ ] Import progress.
 - [ ] Download error report.
