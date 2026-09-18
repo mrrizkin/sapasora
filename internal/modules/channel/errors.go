@@ -14,8 +14,17 @@ var (
 	ErrInvalidAddress = errors.New("invalid channel address")
 	// ErrUnsupported indicates that a capability is not supported by an adapter.
 	ErrUnsupported = errors.New("channel capability unsupported")
-	// ErrNotFound indicates that a requested contact or user does not exist.
+	// ErrNotFound indicates that a requested channel resource does not exist.
 	ErrNotFound = errors.New("channel resource not found")
+	// ErrChannelAccountNotFound indicates that a tenant-scoped account lookup missed.
+	// It aliases ErrNotFound so callers may use either domain-level sentinel.
+	ErrChannelAccountNotFound = ErrNotFound
+	// ErrChannelAccountConflict indicates a duplicate or immutable identity conflict.
+	ErrChannelAccountConflict = errors.New("channel account conflict")
+	// ErrInvalidChannelAccount indicates a model invariant violation.
+	ErrInvalidChannelAccount = errors.New("invalid channel account")
+	// ErrInvalidConnectionEvent indicates an invalid lifecycle event.
+	ErrInvalidConnectionEvent = errors.New("invalid channel connection event")
 )
 
 // ErrorCategory is the stable category used by callers for retry, auth, and
