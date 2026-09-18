@@ -12,6 +12,7 @@ var (
 	ErrClientAlreadyConnected = errors.New("client already connected")
 	ErrFailedToConnect        = errors.New("failed to connect")
 	ErrInvalidPhoneNumber     = errors.New("invalid phone number")
+	ErrInvalidFilename        = errors.New("filename cannot be empty")
 	ErrEmptyBody              = errors.New("body cannot be empty")
 	ErrMissingStanzaID        = errors.New("missing stanza id in contextinfo")
 	ErrMissingParticipant     = errors.New("missing participant in contextinfo")

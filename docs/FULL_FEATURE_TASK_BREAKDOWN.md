@@ -113,19 +113,19 @@
 
 ## T0.6 Perbaiki bug dan panic WhatsApp
 
-- [ ] Perbaiki kondisi koneksi `client != nil || !client.IsConnected()`.
+- [x] Perbaiki kondisi koneksi `client != nil || !client.IsConnected()`.
 - [ ] Tambahkan test immediate connect.
 - [ ] Tambahkan test non-immediate connect.
 - [ ] Tambahkan test nil client.
 - [ ] Tambahkan test already-connected client.
-- [ ] Validasi MIME extension sebelum indexing hasil split.
-- [ ] Validasi filename document sebelum dereference.
-- [ ] Validasi seluruh payload media sebelum decode.
-- [ ] Amankan `SendKillChannel` dari deadlock/unbuffered send.
-- [ ] Tambahkan timeout pada operasi provider.
+- [x] Validasi MIME extension sebelum indexing hasil split.
+- [x] Validasi filename document sebelum dereference.
+- [x] Validasi seluruh payload media sebelum decode.
+- [x] Amankan `SendKillChannel` dari deadlock/unbuffered send.
+- [x] Tambahkan timeout pada operasi provider.
 - [ ] Tambahkan test reconnect race.
 - [ ] Tambahkan test disconnect saat send berjalan.
-- [ ] Pastikan GetAvatar menggunakan target contact/JID, bukan device JID yang salah.
+- [x] Pastikan GetAvatar menggunakan target contact/JID, bukan device JID yang salah.
 
 ## T0.7 Credential tidak boleh bocor melalui URL
 
