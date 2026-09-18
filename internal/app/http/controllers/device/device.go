@@ -2,15 +2,18 @@
 package device
 
 import (
+	"context"
+	"fmt"
+
 	"sapasora/internal/app/http/controllers"
 	"sapasora/internal/app/policies"
 	"sapasora/internal/modules/account"
+	"sapasora/internal/modules/apikey"
 	"sapasora/internal/modules/device"
 	"sapasora/internal/modules/permission"
 	"sapasora/platform/satpam"
 	"sapasora/platform/support/hash"
 	"sapasora/platform/ui/inertia"
-	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -199,7 +202,22 @@ func (c *DeviceController) Get(ctx *fiber.Ctx) error {
 // @Router       /api/v1/device/{token}/token [get]
 func (c *DeviceController) GetDeviceByToken(ctx *fiber.Ctx) error {
 	token := ctx.Params("token")
-	device, err := c.deviceService.GetDeviceByToken(ctx.Context(), token)
+
+	var (
+		device *device.Device
+		err    error
+	)
+
+	// API-key and session callers carry an owner scope. Use it when the
+	// optional repository/service extension is available; device-token callers
+	// have no separate owner scope and use the token/device owner relation.
+	if key, ok := ctx.Locals("apikey").(*apikey.APIKey); ok {
+		device, err = getDeviceByTokenForUser(c.deviceService, ctx.Context(), token, key.UserID)
+	} else if account, ok := ctx.Locals("account").(*account.Account); ok {
+		device, err = getDeviceByTokenForUser(c.deviceService, ctx.Context(), token, account.ID)
+	} else {
+		device, err = c.deviceService.GetDeviceByToken(ctx.Context(), token)
+	}
 	if err != nil {
 		return err
 	}
@@ -216,6 +234,19 @@ func (c *DeviceController) GetDeviceByToken(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	return ctx.JSON(DeviceResponse(device))
+}
+
+func getDeviceByTokenForUser(
+	service device.DeviceService,
+	ctx context.Context,
+	token string,
+	userID uint,
+) (*device.Device, error) {
+	scoped, ok := service.(device.DeviceTokenOwnerScopedService)
+	if !ok {
+		return nil, fiber.ErrUnauthorized
+	}
+	return scoped.GetDeviceByTokenForUser(ctx, token, userID)
 }
 
 // Store godoc

@@ -68,21 +68,21 @@
 
 ## T0.3 Perbaiki device token authentication
 
-- [ ] Audit query authentication device token di `internal/modules/device/repository.go`.
-- [ ] Hentikan raw join yang mengabaikan status credential.
-- [ ] Tambahkan predicate `status = active`.
-- [ ] Tambahkan predicate `expired_at IS NULL OR expired_at > now()`.
-- [ ] Tambahkan predicate `deleted_at IS NULL` pada token.
-- [ ] Pastikan device/channel parent juga belum dihapus.
-- [ ] Pastikan workspace/owner scope masuk query.
-- [ ] Tambahkan test token aktif.
-- [ ] Tambahkan test token revoked.
-- [ ] Tambahkan test token expired.
-- [ ] Tambahkan test token soft-deleted.
-- [ ] Tambahkan test device soft-deleted.
-- [ ] Tambahkan test token dari workspace lain.
-- [ ] Samakan behavior dengan API key authentication.
-- [ ] Tambahkan audit event untuk authentication failure yang aman dari enumeration.
+- [x] Audit query authentication device token di `internal/modules/device/repository.go`.
+- [x] Hentikan raw join yang mengabaikan status credential.
+- [x] Tambahkan predicate `status = active`.
+- [x] Tambahkan predicate `expired_at IS NULL OR expired_at > now()`.
+- [x] Tambahkan predicate `deleted_at IS NULL` pada token.
+- [x] Pastikan device/channel parent juga belum dihapus.
+- [x] Pastikan workspace/owner scope masuk query.
+- [x] Tambahkan test token aktif.
+- [x] Tambahkan test token revoked.
+- [x] Tambahkan test token expired.
+- [x] Tambahkan test token soft-deleted.
+- [x] Tambahkan test device soft-deleted.
+- [x] Tambahkan test token dari workspace lain.
+- [x] Samakan behavior dengan API key authentication.
+- [x] Tambahkan audit event untuk authentication failure yang aman dari enumeration.
 
 ## T0.4 Perbaiki ownership credential dan device
 
