@@ -52,9 +52,13 @@ func (c *DeviceController) Index(ctx *fiber.Ctx) error {
 	}
 	gate.AuthorizeAllPermissions(subject)
 
-	page := ctx.QueryInt("page", 1)
-	limit := ctx.QueryInt("limit", 10)
-	search := ctx.Query("search")
+	params, err := c.ParseListQuery(ctx)
+	if err != nil {
+		return err
+	}
+	page := params.Page
+	limit := params.Limit
+	search := params.Search
 
 	deviceList, err := c.deviceService.ListDevice(ctx.Context(), search, page, limit)
 	if err != nil {
@@ -86,7 +90,10 @@ func (c *DeviceController) Create(ctx *fiber.Ctx) error {
 
 // Show display the device detail
 func (c *DeviceController) Show(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	device, err := c.deviceService.GetDeviceByPublicID(ctx.Context(), id)
 	if err != nil {
 		return err
@@ -114,7 +121,10 @@ func (c *DeviceController) Show(ctx *fiber.Ctx) error {
 
 // Edit show the form to edit the device
 func (c *DeviceController) Edit(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	device, err := c.deviceService.GetDeviceByPublicID(ctx.Context(), id)
 	if err != nil {
 		return err
@@ -155,9 +165,13 @@ func (c *DeviceController) List(ctx *fiber.Ctx) error {
 
 	gate.AuthorizeAllPermissions(subject)
 
-	page := ctx.QueryInt("page", 1)
-	limit := ctx.QueryInt("limit", 10)
-	search := ctx.Query("search")
+	params, err := c.ParseListQuery(ctx)
+	if err != nil {
+		return err
+	}
+	page := params.Page
+	limit := params.Limit
+	search := params.Search
 
 	deviceList, err := c.deviceService.ListDevice(ctx.Context(), search, page, limit)
 	if err != nil {
@@ -177,7 +191,10 @@ func (c *DeviceController) List(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/device/{id} [get]
 func (c *DeviceController) Get(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	device, err := c.deviceService.GetDeviceByPublicID(ctx.Context(), id)
 	if err != nil {
 		return err
@@ -306,7 +323,10 @@ func (c *DeviceController) Store(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/device/{id} [put]
 func (c *DeviceController) Update(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	var payload DeviceUpdateRequest
 	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
@@ -386,7 +406,10 @@ func (c *DeviceController) Update(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/device/{id}/status [put]
 func (c *DeviceController) UpdateStatus(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	var payload DeviceStatusRequest
 	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
@@ -439,7 +462,10 @@ func (c *DeviceController) UpdateStatus(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/device/{id} [delete]
 func (c *DeviceController) Destroy(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	subject, err := c.GetSubject(ctx, "apikey", "account")
 	if err != nil {
 		return err

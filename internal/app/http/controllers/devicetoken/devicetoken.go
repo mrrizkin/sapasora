@@ -55,8 +55,12 @@ func (c *DeviceTokenController) List(ctx *fiber.Ctx) error {
 	}
 	gate.AuthorizeAllPermissions(subject)
 
-	page := ctx.QueryInt("page", 1)
-	limit := ctx.QueryInt("limit", 10)
+	params, err := c.ParseListQuery(ctx)
+	if err != nil {
+		return err
+	}
+	page := params.Page
+	limit := params.Limit
 
 	devicetokenList, err := c.devicetokenService.ListDeviceToken(ctx.Context(), page, limit)
 	if err != nil {
@@ -76,7 +80,10 @@ func (c *DeviceTokenController) List(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/devicetoken/{id} [get]
 func (c *DeviceTokenController) Get(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	subject, err := c.GetSubject(ctx, "apikey", "account")
 	if err != nil {
 		return err
@@ -168,7 +175,10 @@ func (c *DeviceTokenController) Store(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/devicetoken/{id} [delete]
 func (c *DeviceTokenController) Destroy(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	subject, err := c.GetSubject(ctx, "apikey", "account")
 	if err != nil {
 		return err

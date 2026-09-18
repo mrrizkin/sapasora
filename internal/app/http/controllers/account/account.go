@@ -56,9 +56,13 @@ func (c *AccountController) List(ctx *fiber.Ctx) error {
 
 	gate.AuthorizeAllPermissions(subject)
 
-	page := ctx.QueryInt("page", 1)
-	limit := ctx.QueryInt("limit", 10)
-	search := ctx.Query("search")
+	params, err := c.ParseListQuery(ctx)
+	if err != nil {
+		return err
+	}
+	page := params.Page
+	limit := params.Limit
+	search := params.Search
 
 	accountList, err := c.accountService.ListAccount(ctx.Context(), search, page, limit)
 	if err != nil {
@@ -78,7 +82,10 @@ func (c *AccountController) List(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/account/{id} [get]
 func (c *AccountController) Get(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	account, err := c.accountService.GetAccountByPublicID(ctx.Context(), id)
 	if err != nil {
 		return err
@@ -161,7 +168,10 @@ func (c *AccountController) Store(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/account/{id} [put]
 func (c *AccountController) Update(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	var payload AccountUpdateRequest
 	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
@@ -211,7 +221,10 @@ func (c *AccountController) Update(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/account/{id}/password [put]
 func (c *AccountController) UpdatePassword(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	var payload AccountUpdatePasswordRequest
 	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
@@ -261,7 +274,10 @@ func (c *AccountController) UpdatePassword(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/account/{id} [delete]
 func (c *AccountController) Destroy(ctx *fiber.Ctx) error {
-	id := ctx.Params("id")
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
 	account, err := c.accountService.GetAccountByPublicID(ctx.Context(), id)
 	if err != nil {
 		return err

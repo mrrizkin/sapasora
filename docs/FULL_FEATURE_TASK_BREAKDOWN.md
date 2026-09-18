@@ -345,9 +345,9 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 - [x] Definisikan validation library/pattern backend.
 - [x] Validasi semua request body.
 
-> Scope note (P2.6 slice): the existing `platform/validator` is now used for request-body parsing and validation in the device, account, API-key, device-token, role, auth, and gateway controllers. These payloads have focused required/enum/length/URL validation and malformed bodies return 422. Query/path/media/frontend/provider validation remains open.
-- [ ] Validasi query pagination/filter.
-- [ ] Validasi path parameter.
+> Scope note (P2.6 slice): the existing `platform/validator` is now used for request-body parsing and validation in the device, account, API-key, device-token, role, auth, and gateway controllers. List endpoints now share bounded pagination/filter parsing (`page >= 1`, `1 <= limit <= 100`, malformed numeric values rejected, and bounded search); resource routes validate URL-safe public IDs before service lookup. Query/path validation is evidenced; media/frontend/provider validation remains open.
+- [x] Validasi query pagination/filter.
+- [x] Validasi path parameter.
 - [ ] Validasi URL/hostname.
 - [ ] Validasi phone/email/identifier.
 - [ ] Validasi enum/capability.

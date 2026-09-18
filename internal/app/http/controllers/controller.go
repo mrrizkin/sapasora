@@ -137,6 +137,18 @@ func (c *Controller) QueryParserValidate(ctx *fiber.Ctx, out any) error {
 	return http.ParseQueryParams(ctx, out)
 }
 
+func (c *Controller) ParseListQuery(ctx *fiber.Ctx) (http.ListQueryParams, error) {
+	return http.ParseListQueryParams(ctx)
+}
+
+func (c *Controller) PublicIDParam(ctx *fiber.Ctx) (string, error) {
+	id := ctx.Params("id")
+	if err := http.ValidatePublicID(id); err != nil {
+		return "", fiber.NewError(fiber.StatusBadRequest, "invalid id path parameter")
+	}
+	return id, nil
+}
+
 func (c *Controller) Validate(data any) []validator.ErrorResponse {
 	return c.validation().Validate(data)
 }
