@@ -2,11 +2,11 @@ package telegram
 
 import (
 	"context"
+	"errors"
+	"path/filepath"
 	"sapasora/internal/modules/device"
 	"sapasora/platform/config"
 	"sapasora/platform/logger"
-	"errors"
-	"path/filepath"
 	"time"
 
 	"codeberg.org/mrrizkin/nihil"
@@ -99,6 +99,9 @@ func (c *Client) Connect(
 }
 
 func (c *Client) Disconnect(ctx context.Context) error {
+	if c == nil || c.client == nil {
+		return nil
+	}
 	_, err := c.client.Close(ctx)
 	return err
 }
@@ -111,10 +114,13 @@ func (c *Client) EventHandler(result client.Type) {
 }
 
 func (c *Client) IsConnected(ctx context.Context) bool {
-	return c.client != nil
+	return c != nil && c.client != nil
 }
 
 func (c *Client) IsLoggedIn(ctx context.Context) bool {
+	if c == nil || c.client == nil {
+		return false
+	}
 	authState, err := c.client.GetAuthorizationState(ctx)
 	if err != nil {
 		return false
@@ -124,6 +130,9 @@ func (c *Client) IsLoggedIn(ctx context.Context) bool {
 }
 
 func (c *Client) GetUserByPhoneNumber(ctx context.Context, phone string) (*client.User, error) {
+	if c == nil || c.client == nil {
+		return nil, ErrNotConnected
+	}
 	return c.client.SearchUserByPhoneNumber(ctx, &client.SearchUserByPhoneNumberRequest{
 		PhoneNumber: phone,
 	})
@@ -131,6 +140,9 @@ func (c *Client) GetUserByPhoneNumber(ctx context.Context, phone string) (*clien
 }
 
 func (c *Client) GetUserByUsername(ctx context.Context, username string) (*client.User, error) {
+	if c == nil || c.client == nil {
+		return nil, ErrNotConnected
+	}
 	result, err := c.client.SearchPublicChat(ctx, &client.SearchPublicChatRequest{
 		Username: username,
 	})
