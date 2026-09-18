@@ -619,20 +619,20 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 
 ## P5.1 Contact model
 
-- [ ] Buat contact table/model.
-- [ ] Buat contact address table/model.
-- [ ] Normalisasi phone number.
-- [ ] Normalisasi email.
-- [ ] Simpan channel identifier provider.
-- [ ] Tambahkan timezone/locale.
-- [ ] Tambahkan owner/assignment.
-- [ ] Tambahkan lifecycle stage.
+- [x] Buat contact model (table/migration deferred).
+- [x] Buat contact address/identity model (table/migration deferred).
+- [x] Normalisasi phone number.
+- [x] Normalisasi email.
+- [x] Simpan channel identifier provider.
+- [x] Tambahkan timezone/locale.
+- [x] Tambahkan owner/assignment.
+- [x] Tambahkan lifecycle stage.
 - [ ] Tambahkan custom fields schema.
-- [ ] Tambahkan tags.
-- [ ] Tambahkan notes.
-- [ ] Tambahkan source metadata.
-- [ ] Tambahkan workspace scope.
-- [ ] Tambahkan duplicate detection key.
+- [x] Tambahkan tags.
+- [x] Tambahkan notes.
+- [x] Tambahkan source metadata.
+- [x] Tambahkan workspace scope.
+- [x] Tambahkan duplicate detection key.
 
 ## P5.2 Contact CRUD
 
