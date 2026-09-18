@@ -156,6 +156,8 @@ func TestLoadStructWithPointers(t *testing.T) {
 }
 
 func TestLoadStructRequiredField(t *testing.T) {
+	t.Setenv("REQUIRED_NAME", "")
+
 	type RequiredConfig struct {
 		Name string `env:"REQUIRED_NAME,required"`
 	}
@@ -166,6 +168,18 @@ func TestLoadStructRequiredField(t *testing.T) {
 	err := config.LoadStruct("req", &reqConfig)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "required config")
+}
+
+func TestLoadStructRequiredFieldRejectsEmptyValue(t *testing.T) {
+	t.Setenv("REQUIRED_EMPTY_NAME", "   ")
+
+	type RequiredConfig struct {
+		Name string `env:"REQUIRED_EMPTY_NAME,required"`
+	}
+
+	config := NewConfigManager()
+	err := config.LoadStruct("req", &RequiredConfig{})
+	assert.ErrorContains(t, err, "required config")
 }
 
 func TestLoadStructWithDefault(t *testing.T) {

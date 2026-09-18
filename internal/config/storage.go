@@ -3,7 +3,7 @@ package config
 import "time"
 
 type Storage struct {
-	driver string `name:"driver" env:"STORAGE_DRIVER,default=local"`
+	Driver string `name:"driver" env:"STORAGE_DRIVER,default=local"`
 
 	Local struct {
 		Path string `name:"path" env:"STORAGE_LOCAL_PATH,default=./storage"`

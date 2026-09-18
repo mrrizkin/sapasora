@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 
 	"sapasora/platform/config"
@@ -75,6 +76,11 @@ var errorTemplate = `<!DOCTYPE html>
 
 var tmpl = template.Must(template.New("error").Parse(errorTemplate))
 
+var (
+	sensitiveErrorPattern = regexp.MustCompile(`(?i)(password|passwd|secret|token|api[_-]?key|authorization|credential|private[ _-]?key|dsn)\s*[:=]\s*\S+`)
+	credentialURLPattern  = regexp.MustCompile(`(?i)[a-z][a-z0-9+.-]*://[^/\s:@]+:[^/\s@]+@`)
+)
+
 // DefaultErrorHandler is a middleware that handles errors returned by the application.
 func DefaultErrorHandler(c config.Config) fiber.ErrorHandler {
 	return func(ctx *fiber.Ctx, err error) error {
@@ -120,7 +126,7 @@ func DefaultErrorHandler(c config.Config) fiber.ErrorHandler {
 				Frames  []debug.StackFrameContext
 			}{
 				Code:    code,
-				Message: err.Error(),
+				Message: publicErrorMessage(code, err, isDevelopment(c)),
 				Frames:  frames,
 			}
 			ctx.Set("Content-Type", "text/html; charset=utf-8")
@@ -128,24 +134,57 @@ func DefaultErrorHandler(c config.Config) fiber.ErrorHandler {
 			return tmpl.Execute(ctx.Response().BodyWriter(), error)
 		}
 
-		detail := arr.Map(stackFrames, func(frame debug.StackFrame) string {
-			return fmt.Sprintf(
-				"%s (%s:%d)",
-				frame.Function,
-				frame.File,
-				frame.Line,
-			)
-		})
+		var detail []string
+		if isDevelopment(c) {
+			detail = arr.Map(stackFrames, func(frame debug.StackFrame) string {
+				return fmt.Sprintf(
+					"%s (%s:%d)",
+					frame.Function,
+					frame.File,
+					frame.Line,
+				)
+			})
+		}
 
-		errMessage := err.Error()
 		response := ResError[[]string]{
 			Status:  nihil.String(http.StatusText(code)),
-			Message: nihil.String(errMessage),
+			Message: nihil.String(publicErrorMessage(code, err, isDevelopment(c))),
 			Detail:  detail,
 		}
 
 		return ctx.Status(code).JSON(response)
 	}
+}
+
+func publicErrorMessage(code int, err error, development bool) string {
+	if development {
+		return err.Error()
+	}
+
+	message := err.Error()
+	if code >= fiber.StatusInternalServerError {
+		if statusText := http.StatusText(code); statusText != "" {
+			return statusText
+		}
+		return http.StatusText(fiber.StatusInternalServerError)
+	}
+	if sensitiveErrorPattern.MatchString(message) || credentialURLPattern.MatchString(message) {
+		if statusText := http.StatusText(code); statusText != "" {
+			return statusText
+		}
+		return "Request failed"
+	}
+
+	// Only explicit Fiber errors are considered client-safe in production.
+	// Other errors may carry database, provider, or credential details.
+	var fiberError *fiber.Error
+	if errors.As(err, &fiberError) {
+		return message
+	}
+	if statusText := http.StatusText(code); statusText != "" {
+		return statusText
+	}
+	return "Request failed"
 }
 
 // isInternalFrame checks if the given stack frame is internal to the application.

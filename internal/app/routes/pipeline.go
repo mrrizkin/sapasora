@@ -12,7 +12,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/csrf"
-	"github.com/gofiber/fiber/v2/middleware/helmet"
 	"github.com/gofiber/fiber/v2/utils"
 )
 
@@ -62,7 +61,6 @@ func (s *Web) PipeLine() []fiber.Handler {
 	return arr.List(
 		csrf.New(csrfConfig),
 		cors.New(),
-		helmet.New(),
 	)
 }
 

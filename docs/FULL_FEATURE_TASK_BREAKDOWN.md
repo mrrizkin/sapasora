@@ -173,23 +173,23 @@
 
 ## T0.10 Hardening config, migration, server, dan error
 
-- [ ] Propagate seluruh error `LoadStruct` configuration.
-- [ ] Fail fast untuk secret/provider config wajib.
-- [ ] Validasi duration seperti `CACHE_TTL` dengan unit yang eksplisit.
-- [ ] Tambahkan config schema test untuk valid dan invalid environment.
+- [x] Propagate seluruh error `LoadStruct` configuration.
+- [x] Fail fast untuk secret/provider config wajib.
+- [x] Validasi duration seperti `CACHE_TTL` dengan unit yang eksplisit.
+- [x] Tambahkan config schema test untuk valid dan invalid environment.
 - [ ] Tambahkan migration transaction policy.
 - [ ] Tambahkan PostgreSQL advisory lock/migration lock.
 - [ ] Dokumentasikan migration rollback.
-- [ ] Tambahkan server read timeout.
-- [ ] Tambahkan write timeout.
-- [ ] Tambahkan idle timeout.
-- [ ] Tambahkan request body limit.
+- [x] Tambahkan server read timeout.
+- [x] Tambahkan write timeout.
+- [x] Tambahkan idle timeout.
+- [x] Tambahkan request body limit.
 - [ ] Tambahkan media upload limit.
 - [ ] Tambahkan bounded concurrency provider.
-- [ ] Sanitasi error response production.
-- [ ] Jangan mengembalikan `err.Error()` internal secara langsung.
+- [x] Sanitasi error response production.
+- [x] Jangan mengembalikan `err.Error()` internal secara langsung.
 - [ ] Redact webhook URL, SQL values, credential, PII, dan message body dari log.
-- [ ] Aktifkan CSP dan security headers lengkap.
+- [x] Aktifkan CSP dan security headers lengkap.
 - [ ] Amankan Swagger/Scalar di production.
 - [ ] Selaraskan security annotation dengan `Authorization` yang sebenarnya.
 - [ ] Perbaiki `CombinedContext` agar `Done()` tidak tertutup terlalu awal.

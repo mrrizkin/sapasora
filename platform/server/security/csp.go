@@ -18,6 +18,29 @@ func NewCSPBuilder() *CSPBuilder {
 	}
 }
 
+// DefaultCSP returns the application-wide policy used by the HTTP server.
+// Inline styles/scripts are retained for the existing error page and frontend
+// bootstrapping; eval is intentionally not allowed.
+func DefaultCSP() string {
+	return NewCSPBuilder().
+		DefaultSrc("'self'").
+		ScriptSrc("'self'", "'unsafe-inline'").
+		StyleSrc("'self'", "'unsafe-inline'").
+		ImgSrc("'self'", "data:", "blob:").
+		FontSrc("'self'", "data:").
+		ConnectSrc("'self'", "ws:", "wss:").
+		MediaSrc("'self'", "blob:").
+		FrameSrc("'self'").
+		ObjectSrc("'none'").
+		BaseURI("'self'").
+		FormAction("'self'").
+		FrameAncestors("'none'").
+		AddSource("manifest-src", "'self'").
+		AddSource("worker-src", "'self'", "blob:").
+		AddSource("script-src-attr", "'none'").
+		Build()
+}
+
 // DefaultSrc sets the default-src directive
 func (b *CSPBuilder) DefaultSrc(sources ...string) *CSPBuilder {
 	b.directives["default-src"] = sources
@@ -121,17 +144,24 @@ func (b *CSPBuilder) Build() string {
 		"base-uri",
 		"form-action",
 		"frame-ancestors",
+		"manifest-src",
+		"worker-src",
+		"script-src-attr",
 	}
 
+	seen := make(map[string]struct{}, len(order))
 	for _, directive := range order {
 		if sources, ok := b.directives[directive]; ok && len(sources) > 0 {
 			parts = append(parts, fmt.Sprintf("%s %s", directive, strings.Join(sources, " ")))
-			delete(b.directives, directive)
+			seen[directive] = struct{}{}
 		}
 	}
 
-	// Add any remaining directives not in the ordered list
+	// Add any remaining directives not in the ordered list without mutating the builder.
 	for directive, sources := range b.directives {
+		if _, ok := seen[directive]; ok {
+			continue
+		}
 		if len(sources) > 0 {
 			parts = append(parts, fmt.Sprintf("%s %s", directive, strings.Join(sources, " ")))
 		}
