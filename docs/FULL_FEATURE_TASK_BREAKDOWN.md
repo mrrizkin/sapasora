@@ -818,18 +818,18 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 
 ## P7.1 Message model
 
-- [ ] Buat message model.
-- [ ] Buat message attachment model.
-- [ ] Buat message delivery model.
-- [ ] Buat message event append-only.
-- [ ] Simpan inbound/outbound direction.
-- [ ] Simpan provider message ID.
-- [ ] Simpan idempotency key.
-- [ ] Simpan request ID.
-- [ ] Simpan normalized content.
-- [ ] Simpan redacted provider metadata.
-- [ ] Tambahkan workspace scope.
-- [ ] Tambahkan contact/conversation/channel association.
+- [x] Buat message model.
+- [x] Buat message attachment model.
+- [x] Buat message delivery model.
+- [x] Buat message event append-only.
+- [x] Simpan inbound/outbound direction.
+- [x] Simpan provider message ID.
+- [x] Simpan idempotency key.
+- [x] Simpan request ID.
+- [x] Simpan normalized content.
+- [x] Simpan redacted provider metadata.
+- [x] Tambahkan workspace scope.
+- [x] Tambahkan contact/conversation/channel association.
 
 ## P7.2 Message state machine
 
