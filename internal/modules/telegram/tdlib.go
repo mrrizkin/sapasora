@@ -14,7 +14,12 @@ import (
 	"go.uber.org/fx"
 )
 
-const startupConcurrency = 4
+const (
+	startupConcurrency    = 4
+	reconnectMaxAttempts  = 3
+	reconnectInitialDelay = time.Second
+	reconnectMaxDelay     = 5 * time.Second
+)
 
 type TDLib struct {
 	clientStore *Store[*Client]
@@ -106,15 +111,24 @@ func (t *TDLib) connect(ctx context.Context, device *device.Device, waitForConne
 	connect := func() error {
 		return client.Connect(t.qrHandler, 30*time.Second)
 	}
+	connectWithBackoff := func() error {
+		return providerstartup.Retry(
+			ctx,
+			reconnectMaxAttempts,
+			reconnectInitialDelay,
+			reconnectMaxDelay,
+			connect,
+		)
+	}
 	if waitForConnection {
-		if err := connect(); err != nil {
+		if err := connectWithBackoff(); err != nil {
 			t.recordStartupError(device, err)
 			return err
 		}
 		return nil
 	}
 	go func() {
-		if err := connect(); err != nil {
+		if err := connectWithBackoff(); err != nil {
 			t.recordStartupError(device, err)
 			t.log.Error("Failed to connect to TDLib", "device", device.Name, "error", err)
 		}
