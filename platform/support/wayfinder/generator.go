@@ -1,11 +1,11 @@
 package wayfinder
 
 import (
-	"sapasora/platform/support/arr"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sapasora/platform/support/arr"
 	"slices"
 	"sort"
 	"strings"
@@ -31,13 +31,13 @@ func (w *Wayfinder) Generate() error {
 // generateRoutes generates TypeScript route definitions organized by router structure
 func (w *Wayfinder) generateRoutes() error {
 	if err := w.prepareOutputPath(w.routeOutputPath); err != nil {
-		w.log.Error("Failed to prepare route output path", "error", err.Error())
+		w.log.Error("Failed to prepare route output path: %v", err)
 		return err
 	}
 
 	for folder, routes := range w.groupRoutesByRouter() {
 		if err := w.generateRouteContent(folder, routes); err != nil {
-			w.log.Error("Failed to generate route folder", "folder", folder, "error", err.Error())
+			w.log.Error("Failed to generate route folder %q: %v", folder, err)
 			return err
 		}
 	}
@@ -47,31 +47,25 @@ func (w *Wayfinder) generateRoutes() error {
 // generateControllers generates TypeScript route definitions organized by controller structure
 func (w *Wayfinder) generateControllers() error {
 	if err := w.prepareOutputPath(w.controllerOutputPath); err != nil {
-		w.log.Error("Failed to prepare controller output path", "error", err.Error())
+		w.log.Error("Failed to prepare controller output path: %v", err)
 		return err
 	}
 
 	groups := w.groupRoutesByController()
 	for folder, files := range groups {
 		if err := w.generateControllerContent(folder, files); err != nil {
-			w.log.Error(
-				"Failed to generate controller folder",
-				"folder",
-				folder,
-				"error",
-				err.Error(),
-			)
+			w.log.Error("Failed to generate controller folder %q: %v", folder, err)
 			return err
 		}
 	}
 
 	tree, err := w.convertRouteMapToTree(groups)
 	if err != nil {
-		w.log.Error("Failed to convert route map to tree", "error", err.Error())
+		w.log.Error("Failed to convert route map to tree: %v", err)
 		return err
 	}
 	if err := w.processTree(tree, w.controllerOutputPath, "actions"); err != nil {
-		w.log.Error("Failed to process tree", "error", err.Error())
+		w.log.Error("Failed to process tree: %v", err)
 		return err
 	}
 	return nil
@@ -80,20 +74,20 @@ func (w *Wayfinder) generateControllers() error {
 // generateWayfinder generates TypeScript wayfinder helpers
 func (w *Wayfinder) generateWayfinder() error {
 	if err := os.MkdirAll(w.wayfinderOutputPath, 0755); err != nil {
-		w.log.Error("Failed to create wayfinder output path", "error", err.Error())
+		w.log.Error("Failed to create wayfinder output path: %v", err)
 		return err
 	}
 
 	file, err := os.Create(filepath.Join(w.wayfinderOutputPath, "wayfinder.ts"))
 	if err != nil {
-		w.log.Error("Failed to create wayfinder output file", "error", err.Error())
+		w.log.Error("Failed to create wayfinder output file: %v", err)
 		return err
 	}
 	defer file.Close()
 
 	err = w.templates.Render(file, "wayfinder.ts.gotmpl", nil)
 	if err != nil {
-		w.log.Error("Failed to generate wayfinder helpers", "error", err.Error())
+		w.log.Error("Failed to generate wayfinder helpers: %v", err)
 		return err
 	}
 	return nil
@@ -105,7 +99,7 @@ func (w *Wayfinder) prepareOutputPath(outputPath string) error {
 		return nil
 	}
 
-	w.log.Info("Cleaning output path", "path", outputPath)
+	w.log.Info("Cleaning output path: %s", outputPath)
 	return os.RemoveAll(outputPath)
 }
 

@@ -127,7 +127,7 @@ func AsyncWithContext[T any](ctx context.Context, fn func() (T, error)) *Future[
 				// Print stack trace for debugging
 				buf := make([]byte, 64<<10)
 				n := runtime.Stack(buf, false)
-				console.Error(fmt.Sprintf("Panic in Async operation: %v\n%s", p, buf[:n]))
+				console.Error("Panic in Async operation: %v\n%s", p, buf[:n])
 			}
 			atomic.StoreInt32(&state, 1) // completed
 		}()
