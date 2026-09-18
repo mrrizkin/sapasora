@@ -174,6 +174,22 @@ func (s *MemoryStore) Revoke(_ context.Context, id string, at time.Time) error {
 	return nil
 }
 
+// Purge removes only records that have been revoked or have reached their
+// expiry. It is an optional SecretStore capability, so durable stores may add
+// their own transactional implementation without changing SecretStore.
+func (s *MemoryStore) Purge(_ context.Context, now time.Time) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	removed := 0
+	for id, record := range s.records {
+		if record.RevokedAt != nil || record.isExpired(now) {
+			delete(s.records, id)
+			removed++
+		}
+	}
+	return removed, nil
+}
+
 func (r SecretRecord) isExpired(now time.Time) bool {
 	return r.Reference.ExpiresAt != nil && !now.Before(r.Reference.ExpiresAt.UTC())
 }

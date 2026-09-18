@@ -3,6 +3,7 @@ package secret
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -20,9 +21,10 @@ type Service interface {
 
 // SecretService implements Service over an Engine and a persistence contract.
 type SecretService struct {
-	engine *Engine
-	store  SecretStore
-	clock  Clock
+	engine  *Engine
+	store   SecretStore
+	clock   Clock
+	auditor AccessAuditor
 }
 
 // NewService creates the boundary service. It does not wire any existing
@@ -34,12 +36,35 @@ func NewService(engine *Engine, store SecretStore, clock Clock) (*SecretService,
 	if clock == nil {
 		clock = time.Now
 	}
-	return &SecretService{engine: engine, store: store, clock: clock}, nil
+	var auditor AccessAuditor
+	if candidate, ok := store.(AccessAuditor); ok {
+		auditor = candidate
+	}
+	return &SecretService{engine: engine, store: store, clock: clock, auditor: auditor}, nil
+}
+
+// NewServiceWithAudit is an additive constructor for integrations whose audit
+// sink is separate from the SecretStore. Existing SecretStore implementations
+// remain valid and NewService still discovers an optional AccessAuditor on the
+// store itself.
+func NewServiceWithAudit(engine *Engine, store SecretStore, clock Clock, auditor AccessAuditor) (*SecretService, error) {
+	service, err := NewService(engine, store, clock)
+	if err != nil {
+		return nil, err
+	}
+	service.auditor = auditor
+	return service, nil
 }
 
 // Store encrypts plaintext immediately and persists only a reference plus
 // ciphertext. The caller owns plaintext and should wipe it after this call.
-func (s *SecretService) Store(ctx context.Context, id, kind string, plaintext []byte, expiresAt *time.Time) (SecretReference, error) {
+func (s *SecretService) Store(ctx context.Context, id, kind string, plaintext []byte, expiresAt *time.Time) (reference SecretReference, err error) {
+	defer func() {
+		err = s.finishAudit(ctx, id, kind, AuditActionStore, err)
+		if err != nil {
+			reference = SecretReference{}
+		}
+	}()
 	if strings.TrimSpace(id) == "" || strings.TrimSpace(kind) == "" {
 		return SecretReference{}, ErrInvalidSecret
 	}
@@ -47,7 +72,7 @@ func (s *SecretService) Store(ctx context.Context, id, kind string, plaintext []
 	if err != nil {
 		return SecretReference{}, err
 	}
-	reference := SecretReference{
+	reference = SecretReference{
 		ID:         id,
 		Kind:       kind,
 		KeyVersion: envelope.KeyVersion,
@@ -73,11 +98,25 @@ func (s *SecretService) GetReference(ctx context.Context, id string) (SecretRefe
 // Reveal performs an atomic one-time claim at the service boundary. The
 // returned value is intentionally a redacting wrapper; use Bytes or Take only
 // at the provider call site and wipe it when finished.
-func (s *SecretService) Reveal(ctx context.Context, id string) (RevealedSecret, error) {
+func (s *SecretService) Reveal(ctx context.Context, id string) (revealed RevealedSecret, err error) {
+	kind := ""
+	defer func() {
+		err = s.finishAudit(ctx, id, kind, AuditActionReveal, err)
+		if err != nil {
+			revealed.Wipe()
+			revealed = RevealedSecret{}
+		}
+	}()
 	record, err := s.store.ClaimReveal(ctx, id, s.clock())
 	if err != nil {
+		if s.auditor != nil {
+			if existing, getErr := s.store.Get(ctx, id); getErr == nil {
+				kind = existing.Reference.Kind
+			}
+		}
 		return RevealedSecret{}, err
 	}
+	kind = record.Reference.Kind
 	plaintext, err := s.engine.Decrypt(ctx, record.Envelope)
 	if err != nil {
 		return RevealedSecret{}, err
@@ -88,11 +127,19 @@ func (s *SecretService) Reveal(ctx context.Context, id string) (RevealedSecret, 
 // Rotate re-encrypts an active secret with the current key version while
 // preserving its expiry and one-time reveal state. It returns only reference
 // metadata; plaintext is never returned by rotation.
-func (s *SecretService) Rotate(ctx context.Context, id string) (SecretReference, error) {
+func (s *SecretService) Rotate(ctx context.Context, id string) (reference SecretReference, err error) {
+	kind := ""
+	defer func() {
+		err = s.finishAudit(ctx, id, kind, AuditActionRotate, err)
+		if err != nil {
+			reference = SecretReference{}
+		}
+	}()
 	record, err := s.store.Get(ctx, id)
 	if err != nil {
 		return SecretReference{}, err
 	}
+	kind = record.Reference.Kind
 	if record.RevokedAt != nil {
 		return SecretReference{}, ErrSecretRevoked
 	}
@@ -103,7 +150,7 @@ func (s *SecretService) Rotate(ctx context.Context, id string) (SecretReference,
 	if err != nil {
 		return SecretReference{}, err
 	}
-	reference := record.Reference
+	reference = record.Reference
 	reference.KeyVersion = reencrypted.KeyVersion
 	reference.CreatedAt = reencrypted.CreatedAt
 	reference.ExpiresAt = cloneTime(reencrypted.ExpiresAt)
@@ -116,8 +163,54 @@ func (s *SecretService) Rotate(ctx context.Context, id string) (SecretReference,
 }
 
 // Revoke prevents future reveals. Revoke is idempotent at the service boundary.
-func (s *SecretService) Revoke(ctx context.Context, id string) error {
+func (s *SecretService) Revoke(ctx context.Context, id string) (err error) {
+	kind := ""
+	defer func() {
+		err = s.finishAudit(ctx, id, kind, AuditActionRevoke, err)
+	}()
+	if s.auditor != nil {
+		record, getErr := s.store.Get(ctx, id)
+		if getErr != nil {
+			return getErr
+		}
+		kind = record.Reference.Kind
+	}
 	return s.store.Revoke(ctx, id, s.clock())
+}
+
+// Purge removes revoked or expired records when the configured store exposes
+// the optional SecretPurger capability. Legacy SecretStore implementations
+// continue to work for all existing operations.
+func (s *SecretService) Purge(ctx context.Context) (int, error) {
+	purger, ok := s.store.(SecretPurger)
+	if !ok {
+		return 0, ErrSecretPurgeUnsupported
+	}
+	return purger.Purge(ctx, s.clock())
+}
+
+func (s *SecretService) finishAudit(ctx context.Context, id, kind, action string, operationErr error) error {
+	if s.auditor == nil {
+		return operationErr
+	}
+	outcome := AuditOutcomeSuccess
+	if operationErr != nil {
+		outcome = AuditOutcomeFailure
+	}
+	auditErr := s.auditor.RecordAccess(ctx, AccessAuditEvent{
+		SecretID:  id,
+		Kind:      kind,
+		Action:    action,
+		Outcome:   outcome,
+		Timestamp: s.clock().UTC(),
+	})
+	if operationErr != nil {
+		return operationErr
+	}
+	if auditErr != nil {
+		return fmt.Errorf("record secret access audit: %w", auditErr)
+	}
+	return nil
 }
 
 // RevealedSecret is an ephemeral plaintext holder. It has no exported
