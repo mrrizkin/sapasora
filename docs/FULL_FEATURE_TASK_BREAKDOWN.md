@@ -719,19 +719,19 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 
 ## P6.1 Conversation model
 
-- [ ] Buat conversation table/model.
-- [ ] Buat participant model.
-- [ ] Buat assignment model.
-- [ ] Tambahkan channel association.
-- [ ] Tambahkan contact association.
-- [ ] Tambahkan status.
-- [ ] Tambahkan priority.
-- [ ] Tambahkan tags.
-- [ ] Tambahkan SLA fields.
-- [ ] Tambahkan last activity.
-- [ ] Tambahkan unread count.
-- [ ] Tambahkan workspace scope.
-- [ ] Tambahkan conversation public ID.
+- [x] Buat conversation table/model.
+- [x] Buat participant model.
+- [x] Buat assignment model.
+- [x] Tambahkan channel association.
+- [x] Tambahkan contact association.
+- [x] Tambahkan status.
+- [x] Tambahkan priority.
+- [x] Tambahkan tags.
+- [x] Tambahkan SLA fields.
+- [x] Tambahkan last activity.
+- [x] Tambahkan unread count.
+- [x] Tambahkan workspace scope.
+- [x] Tambahkan conversation public ID.
 
 ## P6.2 Inbox list
 
