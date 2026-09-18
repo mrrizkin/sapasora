@@ -33,8 +33,17 @@ error       -> pending
 ```
 
 `disconnected`, `expired`, and `error` re-enter through `pending` so a future
-connection attempt is explicit. Reconnect backoff, circuit breaking, locks,
-history, metrics, and provider integration are outside this focused slice.
+connection attempt is explicit. The provider-neutral package also provides a
+bounded, context-aware `ReconnectBackoffPolicy` with deterministic exponential
+delays by default, optional bounded jitter, and no wait after the final
+attempt. Circuit breaking, locks, history, metrics, and provider integration
+remain outside this focused slice.
+
+The policy is an integration boundary, not a provider migration: existing
+WhatsApp and Telegram startup paths continue using their `providerstartup`
+retry helper. Provider adapters can adopt `channel.ReconnectBackoffPolicy` in a
+separate integration change once their lifecycle ownership and observability
+contracts are ready.
 
 The existing `FakeAdapter` remains an additive adapter-contract fake. It is not
 wired to the lifecycle state machine yet: its contract tests intentionally

@@ -490,7 +490,7 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 - [x] Implementasikan `expired` state.
 - [x] Implementasikan `error` state.
 - [x] Validasi semua state transition.
-- [ ] Buat reconnect backoff.
+- [x] Buat reconnect backoff.
 - [ ] Buat provider circuit breaker.
 - [ ] Buat per-channel distributed lock.
 - [ ] Buat connection history.
