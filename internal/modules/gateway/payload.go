@@ -11,8 +11,8 @@ type GetQRResponse struct {
 } // @name gateway.GetQRResponse
 
 type CheckUserRequest struct {
-	Phone    []string `json:"phone"`
-	Username []string `json:"username"`
+	Phone    []string `json:"phone" validate:"required_without=Username,dive,min=1,max=255"`
+	Username []string `json:"username" validate:"required_without=Phone,dive,min=1,max=255"`
 } // @name whatsapp.CheckUserRequest
 
 type CheckUser struct {
@@ -27,13 +27,13 @@ type CheckUserResponse struct {
 } // @name whatsapp.CheckUserResponse
 
 type ConnectRequest struct {
-	Subscribe []string `json:"subscribe"`
+	Subscribe []string `json:"subscribe" validate:"omitempty,max=100,dive,min=1,max=100"`
 	Immediate bool     `json:"immediate"`
 } // @name whatsapp.ConnectRequest
 
 type GetAvatarRequest struct {
-	Phone    string `json:"phone"`
-	Username string `json:"username"`
+	Phone    string `json:"phone" validate:"required_without=Username,max=255"`
+	Username string `json:"username" validate:"required_without=Phone,max=255"`
 	Preview  bool   `json:"preview"`
 } // @name whatsapp.GetAvatarRequest
 
@@ -64,8 +64,8 @@ type GetStatusResponse struct {
 } // @name whatsapp.GetStatusResponse
 
 type GetUserRequest struct {
-	Phone    []string `json:"phone"`
-	Username []string `json:"username"`
+	Phone    []string `json:"phone" validate:"required_without=Username,dive,min=1,max=255"`
+	Username []string `json:"username" validate:"required_without=Phone,dive,min=1,max=255"`
 } // @name whatsapp.GetUserRequest
 
 type VerifiedName struct {
@@ -94,117 +94,117 @@ type ContextInfo struct {
 } // @name whatsapp.ContextInfo
 
 type SendAudioRequest struct {
-	Phone    string `json:"phone"`
-	Username string `json:"username"`
-	Audio    string `json:"audio"`
-	Caption  string `json:"caption"`
-	ID       string `json:"id"`
+	Phone    string `json:"phone" validate:"required_without=Username,max=255"`
+	Username string `json:"username" validate:"required_without=Phone,max=255"`
+	Audio    string `json:"audio" validate:"required"`
+	Caption  string `json:"caption" validate:"omitempty,max=4096"`
+	ID       string `json:"id" validate:"omitempty,max=255"`
 
 	ContextInfo ContextInfo `json:"context_info"`
 } // @name whatsapp.SendAudioRequest
 
 type Button struct {
-	ButtonID   string `json:"button_id"`
-	ButtonText string `json:"button_text"`
+	ButtonID   string `json:"button_id" validate:"required,max=255"`
+	ButtonText string `json:"button_text" validate:"required,max=255"`
 } // @name whatsapp.Button
 
 type SendButtonTextRequest struct {
-	Phone    string   `json:"phone"`
-	Username string   `json:"username"`
-	Title    string   `json:"title"`
-	Buttons  []Button `json:"buttons"`
-	ID       string   `json:"id"`
+	Phone    string   `json:"phone" validate:"required_without=Username,max=255"`
+	Username string   `json:"username" validate:"required_without=Phone,max=255"`
+	Title    string   `json:"title" validate:"required,max=4096"`
+	Buttons  []Button `json:"buttons" validate:"required,min=1,max=10,dive"`
+	ID       string   `json:"id" validate:"omitempty,max=255"`
 } // @name whatsapp.SendButtonTextRequest
 
 type ChatPresenceRequest struct {
-	Phone    string `json:"phone"`
-	Username string `json:"username"`
-	State    string `json:"state"`
-	Media    string `json:"media"`
+	Phone    string `json:"phone" validate:"required_without=Username,max=255"`
+	Username string `json:"username" validate:"required_without=Phone,max=255"`
+	State    string `json:"state" validate:"required,oneof=composing paused"`
+	Media    string `json:"media" validate:"omitempty,oneof=audio"`
 } // @name whatsapp.ChatPresenceRequest
 
 type SendContactRequest struct {
-	Phone       string      `json:"phone"`
-	Username    string      `json:"username"`
-	ID          string      `json:"id"`
-	Name        string      `json:"name"`
-	Vcard       string      `json:"vcard"`
+	Phone       string      `json:"phone" validate:"required_without=Username,max=255"`
+	Username    string      `json:"username" validate:"required_without=Phone,max=255"`
+	ID          string      `json:"id" validate:"omitempty,max=255"`
+	Name        string      `json:"name" validate:"required,max=255"`
+	Vcard       string      `json:"vcard" validate:"required"`
 	ContextInfo ContextInfo `json:"context_info"`
 } // @name whatsapp.SendContactRequest
 
 type SendDocumentRequest struct {
-	Phone       string      `json:"phone"`
-	Username    string      `json:"username"`
-	Document    string      `json:"document"`
-	FileName    string      `json:"filename"`
-	ID          string      `json:"id"`
+	Phone       string      `json:"phone" validate:"required_without=Username,max=255"`
+	Username    string      `json:"username" validate:"required_without=Phone,max=255"`
+	Document    string      `json:"document" validate:"required"`
+	FileName    string      `json:"filename" validate:"required,max=255"`
+	ID          string      `json:"id" validate:"omitempty,max=255"`
 	ContextInfo ContextInfo `json:"context_info"`
 } // @name whatsapp.SendDocumentRequest
 
 type SendImageRequest struct {
-	Phone       string      `json:"phone"`
-	Username    string      `json:"username"`
-	Image       string      `json:"image"`
-	Caption     string      `json:"caption"`
-	ID          string      `json:"id"`
+	Phone       string      `json:"phone" validate:"required_without=Username,max=255"`
+	Username    string      `json:"username" validate:"required_without=Phone,max=255"`
+	Image       string      `json:"image" validate:"required"`
+	Caption     string      `json:"caption" validate:"omitempty,max=4096"`
+	ID          string      `json:"id" validate:"omitempty,max=255"`
 	ContextInfo ContextInfo `json:"context_info"`
 } // @name whatsapp.SendImageRequest
 
 type Row struct {
-	RowID       string `json:"row_id"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
+	RowID       string `json:"row_id" validate:"omitempty,max=255"`
+	Title       string `json:"title" validate:"required,max=255"`
+	Description string `json:"description" validate:"omitempty,max=1000"`
 } // @name whatsapp.Row
 
 type Section struct {
-	Title string `json:"title"`
-	Rows  []Row  `json:"rows"`
+	Title string `json:"title" validate:"required,max=255"`
+	Rows  []Row  `json:"rows" validate:"required,min=1,max=10,dive"`
 } // @name whatsapp.Section
 
 type SendListRequest struct {
-	Phone       string    `json:"phone"`
-	Username    string    `json:"username"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	ButtonText  string    `json:"button_text"`
-	FooterText  string    `json:"footer_text"`
-	Sections    []Section `json:"sections"`
-	ID          string    `json:"id"`
+	Phone       string    `json:"phone" validate:"required_without=Username,max=255"`
+	Username    string    `json:"username" validate:"required_without=Phone,max=255"`
+	Title       string    `json:"title" validate:"required,max=255"`
+	Description string    `json:"description" validate:"required,max=4096"`
+	ButtonText  string    `json:"button_text" validate:"required,max=255"`
+	FooterText  string    `json:"footer_text" validate:"omitempty,max=255"`
+	Sections    []Section `json:"sections" validate:"required,min=1,max=10,dive"`
+	ID          string    `json:"id" validate:"omitempty,max=255"`
 } // @name whatsapp.SendListRequest
 
 type SendLocationRequest struct {
-	Phone       string      `json:"phone"`
-	Username    string      `json:"username"`
-	ID          string      `json:"id"`
-	Name        string      `json:"name"`
+	Phone       string      `json:"phone" validate:"required_without=Username,max=255"`
+	Username    string      `json:"username" validate:"required_without=Phone,max=255"`
+	ID          string      `json:"id" validate:"omitempty,max=255"`
+	Name        string      `json:"name" validate:"omitempty,max=255"`
 	Latitude    float64     `json:"latitude"`
 	Longitude   float64     `json:"longitude"`
 	ContextInfo ContextInfo `json:"context_info"`
 } // @name whatsapp.SendLocationRequest
 
 type SendStickerRequest struct {
-	Phone        string      `json:"phone"`
-	Username     string      `json:"username"`
-	Sticker      string      `json:"sticker"`
-	ID           string      `json:"id"`
+	Phone        string      `json:"phone" validate:"required_without=Username,max=255"`
+	Username     string      `json:"username" validate:"required_without=Phone,max=255"`
+	Sticker      string      `json:"sticker" validate:"required"`
+	ID           string      `json:"id" validate:"omitempty,max=255"`
 	PngThumbnail []byte      `json:"png_thumbnail"`
 	ContextInfo  ContextInfo `json:"context_info"`
 } // @name whatsapp.SendStickerRequest
 
 type SendTextRequest struct {
-	Phone       string      `json:"phone"`
-	Username    string      `json:"username"`
-	Body        string      `json:"body"`
-	ID          string      `json:"id"`
+	Phone       string      `json:"phone" validate:"required_without=Username,max=255"`
+	Username    string      `json:"username" validate:"required_without=Phone,max=255"`
+	Body        string      `json:"body" validate:"required,max=4096"`
+	ID          string      `json:"id" validate:"omitempty,max=255"`
 	ContextInfo ContextInfo `json:"context_info"`
 } // @name whatsapp.SendTextRequest
 
 type SendVideoRequest struct {
-	Phone         string      `json:"phone"`
-	Username      string      `json:"username"`
-	Video         string      `json:"video"`
-	Caption       string      `json:"caption"`
-	ID            string      `json:"id"`
+	Phone         string      `json:"phone" validate:"required_without=Username,max=255"`
+	Username      string      `json:"username" validate:"required_without=Phone,max=255"`
+	Video         string      `json:"video" validate:"required"`
+	Caption       string      `json:"caption" validate:"omitempty,max=4096"`
+	ID            string      `json:"id" validate:"omitempty,max=255"`
 	JpegThumbnail []byte      `json:"jpeg_thumbnail"`
 	ContextInfo   ContextInfo `json:"context_info"`
 } // @name whatsapp.SendVideoRequest

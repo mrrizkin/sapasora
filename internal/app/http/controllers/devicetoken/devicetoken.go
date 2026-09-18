@@ -127,7 +127,7 @@ func (c *DeviceTokenController) Store(ctx *fiber.Ctx) error {
 	}
 
 	var payload DeviceTokenStoreRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 

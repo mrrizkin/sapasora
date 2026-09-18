@@ -123,7 +123,7 @@ func (c *APIKeyController) Store(ctx *fiber.Ctx) error {
 	}
 
 	var payload APIKeyStoreRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -163,7 +163,7 @@ func (c *APIKeyController) Store(ctx *fiber.Ctx) error {
 func (c *APIKeyController) Update(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	var payload APIKeyUpdateRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 

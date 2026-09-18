@@ -56,7 +56,7 @@ func (c *GatewayController) CheckUser(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload gateway.CheckUserRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -95,7 +95,7 @@ func (c *GatewayController) Connect(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload gateway.ConnectRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -173,7 +173,7 @@ func (c *GatewayController) GetAvatar(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload gateway.GetAvatarRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -323,7 +323,7 @@ func (c *GatewayController) GetUser(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload gateway.GetUserRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -398,7 +398,7 @@ func (c *GatewayController) SendAudio(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload gateway.SendAudioRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -437,7 +437,7 @@ func (c *GatewayController) SendButton(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload gateway.SendButtonTextRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -476,7 +476,7 @@ func (c *GatewayController) SendChatPresence(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload gateway.ChatPresenceRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -518,7 +518,7 @@ func (c *GatewayController) SendContact(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload gateway.SendContactRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -557,7 +557,7 @@ func (c *GatewayController) SendDocument(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload gateway.SendDocumentRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -596,7 +596,7 @@ func (c *GatewayController) SendImage(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload gateway.SendImageRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -635,7 +635,7 @@ func (c *GatewayController) SendList(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload gateway.SendListRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -674,7 +674,7 @@ func (c *GatewayController) SendLocation(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload gateway.SendLocationRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -713,7 +713,7 @@ func (c *GatewayController) SendSticker(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload gateway.SendStickerRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -752,7 +752,7 @@ func (c *GatewayController) SendText(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload gateway.SendTextRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -791,7 +791,7 @@ func (c *GatewayController) SendVideo(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload gateway.SendVideoRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 

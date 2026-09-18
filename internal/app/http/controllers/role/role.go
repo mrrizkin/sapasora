@@ -41,16 +41,16 @@ func NewRoleController(
 // @Security     Authorization
 // @Router       /api/v1/role [get]
 func (c *RoleController) List(ctx *fiber.Ctx) error {
-    gate := satpam.New(&policies.CanListRole{})
-    subject, err := c.GetSubject(ctx, "account")
-    if err != nil {
-        return err
-    }
-    if subject == nil {
-        return fiber.ErrForbidden
-    }
+	gate := satpam.New(&policies.CanListRole{})
+	subject, err := c.GetSubject(ctx, "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrForbidden
+	}
 
-    gate.AuthorizeAllPermissions(subject)
+	gate.AuthorizeAllPermissions(subject)
 
 	page := ctx.QueryInt("page", 1)
 	limit := ctx.QueryInt("limit", 10)
@@ -80,16 +80,16 @@ func (c *RoleController) Get(ctx *fiber.Ctx) error {
 		return err
 	}
 
-    gate := satpam.New(&policies.CanGetRole{}).AddResource("role", role)
-    subject, err := c.GetSubject(ctx, "account")
-    if err != nil {
-        return err
-    }
-    if subject == nil {
-        return fiber.ErrUnauthorized
-    }
+	gate := satpam.New(&policies.CanGetRole{}).AddResource("role", role)
+	subject, err := c.GetSubject(ctx, "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrUnauthorized
+	}
 
-    gate.AuthorizeAllPermissions(subject)
+	gate.AuthorizeAllPermissions(subject)
 
 	return ctx.JSON(RoleResponse(role))
 }
@@ -105,18 +105,18 @@ func (c *RoleController) Get(ctx *fiber.Ctx) error {
 // @Security     Authorization
 // @Router       /api/v1/role [post]
 func (c *RoleController) Store(ctx *fiber.Ctx) error {
-    gate := satpam.New(&policies.CanStoreRole{})
-    subject, err := c.GetSubject(ctx, "account")
-    if err != nil {
-        return err
-    }
-    if subject == nil {
-        return fiber.ErrUnauthorized
-    }
-    gate.AuthorizeAllPermissions(subject)
+	gate := satpam.New(&policies.CanStoreRole{})
+	subject, err := c.GetSubject(ctx, "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrUnauthorized
+	}
+	gate.AuthorizeAllPermissions(subject)
 
 	var payload RoleStoreRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -148,7 +148,7 @@ func (c *RoleController) Store(ctx *fiber.Ctx) error {
 func (c *RoleController) Update(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	var payload RoleUpdateRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -157,16 +157,16 @@ func (c *RoleController) Update(ctx *fiber.Ctx) error {
 		return err
 	}
 
-    gate := satpam.New(&policies.CanUpdateRole{}).AddResource("role", role)
-    subject, err := c.GetSubject(ctx, "account")
-    if err != nil {
-        return err
-    }
-    if subject == nil {
-        return fiber.ErrUnauthorized
-    }
+	gate := satpam.New(&policies.CanUpdateRole{}).AddResource("role", role)
+	subject, err := c.GetSubject(ctx, "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrUnauthorized
+	}
 
-    gate.AuthorizeAllPermissions(subject)
+	gate.AuthorizeAllPermissions(subject)
 
 	role.Name = payload.Name
 	role.Description = payload.Description
@@ -192,7 +192,7 @@ func (c *RoleController) UpdatePermissions(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 
 	var payload RoleUpdatePermissionsRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -201,16 +201,16 @@ func (c *RoleController) UpdatePermissions(ctx *fiber.Ctx) error {
 		return err
 	}
 
-    gate := satpam.New(&policies.CanUpdatePermissionRole{}).AddResource("role", role)
-    subject, err := c.GetSubject(ctx, "account")
-    if err != nil {
-        return err
-    }
-    if subject == nil {
-        return fiber.ErrUnauthorized
-    }
+	gate := satpam.New(&policies.CanUpdatePermissionRole{}).AddResource("role", role)
+	subject, err := c.GetSubject(ctx, "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrUnauthorized
+	}
 
-    gate.AuthorizeAllPermissions(subject)
+	gate.AuthorizeAllPermissions(subject)
 
 	role.Permissions = &payload.Permissions
 
@@ -237,16 +237,16 @@ func (c *RoleController) Destroy(ctx *fiber.Ctx) error {
 		return err
 	}
 
-    gate := satpam.New(&policies.CanDeleteRole{}).AddResource("role", role)
-    subject, err := c.GetSubject(ctx, "account")
-    if err != nil {
-        return err
-    }
-    if subject == nil {
-        return fiber.ErrUnauthorized
-    }
+	gate := satpam.New(&policies.CanDeleteRole{}).AddResource("role", role)
+	subject, err := c.GetSubject(ctx, "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrUnauthorized
+	}
 
-    gate.AuthorizeAllPermissions(subject)
+	gate.AuthorizeAllPermissions(subject)
 
 	if err := c.roleService.DeleteRole(ctx.Context(), role); err != nil {
 		return err

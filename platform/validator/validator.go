@@ -2,8 +2,10 @@ package validator
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
+	"codeberg.org/mrrizkin/nihil"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
@@ -22,9 +24,16 @@ type (
 )
 
 func NewValidator() *Validator {
-	return &Validator{
-		validator: validator.New(),
-	}
+	v := validator.New()
+	v.RegisterCustomTypeFunc(func(value reflect.Value) any {
+		nullable := value.Interface().(nihil.NilString)
+		if !nullable.Valid {
+			return nil
+		}
+		return nullable.String
+	}, nihil.NilString{})
+
+	return &Validator{validator: v}
 }
 
 func (v *Validator) MustValidate(data any) error {
@@ -39,18 +48,28 @@ func (v *Validator) MustValidate(data any) error {
 func (v *Validator) Validate(data any) []ErrorResponse {
 	errorResponse := make([]ErrorResponse, 0)
 
-	errs := v.validator.Struct(data)
-	if errs != nil {
-		for _, err := range errs.(validator.ValidationErrors) {
-			var elem ErrorResponse
+	err := v.validator.Struct(data)
+	if err == nil {
+		return errorResponse
+	}
 
-			elem.FailedField = err.Field()
-			elem.Tag = err.Tag()
-			elem.Value = err.Value()
-			elem.Error = true
+	validationErrors, ok := err.(validator.ValidationErrors)
+	if !ok {
+		return append(errorResponse, ErrorResponse{
+			Error:       true,
+			FailedField: "payload",
+			Tag:         "invalid",
+			Value:       data,
+		})
+	}
 
-			errorResponse = append(errorResponse, elem)
-		}
+	for _, validationError := range validationErrors {
+		errorResponse = append(errorResponse, ErrorResponse{
+			FailedField: validationError.Field(),
+			Tag:         validationError.Tag(),
+			Value:       validationError.Value(),
+			Error:       true,
+		})
 	}
 
 	return errorResponse

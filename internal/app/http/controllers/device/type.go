@@ -12,9 +12,9 @@ type DeviceResponse *device.Device // @name DeviceController.DeviceResponse
 type DeviceListResponse *device.Pagination[*device.Device] // @name DeviceController.DeviceListResponse
 
 type DeviceStoreRequest struct {
-	Name        string                 `json:"name"`
-	Type        device.DeviceType      `json:"type"`
-	Webhook     nihil.NilString        `json:"webhook"`
+	Name        string                 `json:"name" validate:"required,min=1,max=255"`
+	Type        device.DeviceType      `json:"type" validate:"oneof=0 1"`
+	Webhook     nihil.NilString        `json:"webhook" validate:"omitempty,url"`
 	AutoConnect bool                   `json:"auto_connect"`
 	Events      nihil.NilString        `json:"events"`
 	ExpiredAt   nihil.NilTime          `json:"expired_at"`
@@ -23,9 +23,9 @@ type DeviceStoreRequest struct {
 } // @name DeviceController.DeviceStoreRequest
 
 type DeviceUpdateRequest struct {
-	Name        string                 `json:"name"`
-	Type        device.DeviceType      `json:"type"`
-	Webhook     nihil.NilString        `json:"webhook"`
+	Name        string                 `json:"name" validate:"required,min=1,max=255"`
+	Type        device.DeviceType      `json:"type" validate:"oneof=0 1"`
+	Webhook     nihil.NilString        `json:"webhook" validate:"omitempty,url"`
 	AutoConnect *bool                  `json:"auto_connect"`
 	Events      nihil.NilString        `json:"events"`
 	ExpiredAt   nihil.NilTime          `json:"expired_at"`
@@ -34,5 +34,5 @@ type DeviceUpdateRequest struct {
 } // @name DeviceController.DeviceUpdateRequest
 
 type DeviceStatusRequest struct {
-	Status device.DeviceStatus `json:"status"`
+	Status device.DeviceStatus `json:"status" validate:"oneof=0 1 2 3"`
 } // @name DeviceController.DeviceStatusRequest

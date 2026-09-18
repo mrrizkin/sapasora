@@ -142,6 +142,18 @@ func TestDeviceStoreAcceptsAutoConnectOptIn(t *testing.T) {
 	require.True(t, stub.created.AutoConnect)
 }
 
+func TestDeviceStoreRejectsInvalidPayloadWith422(t *testing.T) {
+	stub := &ownershipDeviceServiceStub{}
+	app := newDeviceOwnershipTestApp(stub)
+	request := httptest.NewRequest(http.MethodPost, "/device", bytes.NewBufferString(`{"name":"","type":"invalid"}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := app.Test(request)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
+	require.Nil(t, stub.created)
+}
+
 func TestDeviceUpdatePreservesAutoConnectWhenOmitted(t *testing.T) {
 	stub := &ownershipDeviceServiceStub{
 		scopedDevice: &devicemodule.Device{
