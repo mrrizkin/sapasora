@@ -38,6 +38,7 @@ func NewRoleController(
 // @Param        limit   query  int    false "Limit"
 // @Param        search  query  string false "Search"
 // @Success      200 {object} RoleListResponse
+// @Security     Authorization
 // @Router       /api/v1/role [get]
 func (c *RoleController) List(ctx *fiber.Ctx) error {
     gate := satpam.New(&policies.CanListRole{})
@@ -70,6 +71,7 @@ func (c *RoleController) List(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        id  path  string true "ID"
 // @Success      200 {object} RoleResponse
+// @Security     Authorization
 // @Router       /api/v1/role/{id} [get]
 func (c *RoleController) Get(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
@@ -100,6 +102,7 @@ func (c *RoleController) Get(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        role  body  RoleStoreRequest true "Body"
 // @Success      200 {object} RoleResponse
+// @Security     Authorization
 // @Router       /api/v1/role [post]
 func (c *RoleController) Store(ctx *fiber.Ctx) error {
     gate := satpam.New(&policies.CanStoreRole{})
@@ -140,6 +143,7 @@ func (c *RoleController) Store(ctx *fiber.Ctx) error {
 // @Param        id  path  string true "ID"
 // @Param        role  body  RoleUpdateRequest true "Body"
 // @Success      200 {object} RoleResponse
+// @Security     Authorization
 // @Router       /api/v1/role/{id} [put]
 func (c *RoleController) Update(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
@@ -182,6 +186,7 @@ func (c *RoleController) Update(ctx *fiber.Ctx) error {
 // @Param        id  path  string true "ID"
 // @Param        role body RoleUpdatePermissionsRequest true "Body"
 // @Success      200 {object} RoleResponse
+// @Security     Authorization
 // @Router       /api/v1/role/{id}/permissions [put]
 func (c *RoleController) UpdatePermissions(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
@@ -223,6 +228,7 @@ func (c *RoleController) UpdatePermissions(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        id  path  string true "ID"
 // @Success      200 {object} RoleResponse
+// @Security     Authorization
 // @Router       /api/v1/role/{id} [delete]
 func (c *RoleController) Destroy(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")

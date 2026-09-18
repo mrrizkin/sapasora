@@ -50,6 +50,7 @@ func TestNewAppConfigLoadsServerConfig(t *testing.T) {
 	t.Setenv("SERVER_WRITE_TIMEOUT", "3s")
 	t.Setenv("SERVER_IDLE_TIMEOUT", "4s")
 	t.Setenv("SERVER_BODY_LIMIT", "1024")
+	t.Setenv("SERVER_MEDIA_UPLOAD_LIMIT", "512")
 
 	cfg, err := NewAppConfig(platformconfig.NewConfigManager())
 	require.NoError(t, err)
@@ -57,4 +58,5 @@ func TestNewAppConfigLoadsServerConfig(t *testing.T) {
 	require.Equal(t, 3*time.Second, cfg.GetDuration("server.write_timeout"))
 	require.Equal(t, 4*time.Second, cfg.GetDuration("server.idle_timeout"))
 	require.Equal(t, 1024, cfg.GetInt("server.body_limit"))
+	require.Equal(t, 512, cfg.GetInt("server.media_upload_limit"))
 }

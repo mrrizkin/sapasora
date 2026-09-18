@@ -102,7 +102,7 @@ func (t *TelegramServiceImpl) Disconnect(ctx context.Context, device *device.Dev
 		return nil
 	}
 
-	return c.Disconnect(ctx)
+	return t.tele.Disconnect(ctx, device.PublicID)
 }
 
 // GetAvatar implements [TelegramService].

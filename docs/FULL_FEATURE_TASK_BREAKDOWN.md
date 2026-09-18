@@ -42,13 +42,13 @@
 - [x] Definisikan behavior untuk capability Telegram yang tidak didukung.
 - [ ] Implementasikan method Telegram yang masuk scope release.
 - [x] Untuk method yang belum siap, return `501 Not Implemented` dengan error code stabil.
-- [ ] Tambahkan fake Telegram adapter untuk unit test.
+- [x] Tambahkan fake Telegram adapter untuk unit test.
 - [ ] Tambahkan integration test dengan TDLib fixture.
 - [ ] Pastikan error dari goroutine TDLib sampai ke supervisor.
-- [ ] Pastikan shutdown TDLib menutup client dan goroutine dengan aman.
+- [x] Pastikan shutdown TDLib menutup client dan goroutine dengan aman.
 - [x] Tambahkan test untuk `ActiveUsernames` kosong.
 - [x] Tambahkan test untuk disconnect ketika client nil.
-- [ ] Tambahkan test untuk state `connecting`, `connected`, `disconnected`, dan `error`.
+- [x] Tambahkan test untuk state `connecting`, `connected`, `disconnected`, dan `error`.
 - [x] Hapus seluruh panic provider dari route yang aktif.
 
 ## T0.2 Perbaiki CSRF
@@ -170,9 +170,9 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 - [x] Jangan block seluruh startup karena satu provider gagal.
 - [x] Simpan last startup error.
 - [x] Tambahkan graceful stop hook untuk semua provider.
-- [ ] Pastikan `IsConnected` benar-benar merepresentasikan state provider.
-- [ ] Selaraskan status dan JID/device identity.
-- [ ] Tambahkan provider lifecycle metrics.
+- [x] Pastikan `IsConnected` benar-benar merepresentasikan state provider.
+- [x] Selaraskan status dan JID/device identity.
+- [x] Tambahkan provider lifecycle metrics.
 
 ## T0.10 Hardening config, migration, server, dan error
 
@@ -187,14 +187,14 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 - [x] Tambahkan write timeout.
 - [x] Tambahkan idle timeout.
 - [x] Tambahkan request body limit.
-- [ ] Tambahkan media upload limit.
+- [x] Tambahkan media upload limit.
 - [ ] Tambahkan bounded concurrency provider.
 - [x] Sanitasi error response production.
 - [x] Jangan mengembalikan `err.Error()` internal secara langsung.
-- [ ] Redact webhook URL, SQL values, credential, PII, dan message body dari log.
+- [x] Redact webhook URL, SQL values, credential, PII, dan message body dari log.
 - [x] Aktifkan CSP dan security headers lengkap.
 - [x] Amankan Swagger/Scalar di production.
-- [ ] Selaraskan security annotation dengan `Authorization` yang sebenarnya.
+- [x] Selaraskan security annotation dengan `Authorization` yang sebenarnya.
 - [x] Perbaiki `CombinedContext` agar `Done()` tidak tertutup terlalu awal.
 
 ---

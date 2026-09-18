@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync/atomic"
 
 	"codeberg.org/mrrizkin/nihil"
@@ -39,6 +40,48 @@ func NewClient(
 		Events:     events,
 		wMeow:      w,
 	}
+}
+
+type connectedDeviceWriter interface {
+	SetDeviceJIDByPublicID(context.Context, string, string) error
+	SetDeviceStatusConnectedByPublicID(context.Context, string) error
+}
+
+func syncConnectedDeviceIdentity(
+	ctx context.Context,
+	service connectedDeviceWriter,
+	deviceID string,
+	jid string,
+) error {
+	if service == nil {
+		return fmt.Errorf("whatsapp device service is not configured")
+	}
+	jid = strings.TrimSpace(jid)
+	if jid == "" {
+		return fmt.Errorf("whatsapp identity is empty")
+	}
+	if err := service.SetDeviceJIDByPublicID(ctx, deviceID, jid); err != nil {
+		return fmt.Errorf("persist WhatsApp identity: %w", err)
+	}
+	if err := service.SetDeviceStatusConnectedByPublicID(ctx, deviceID); err != nil {
+		return fmt.Errorf("persist WhatsApp connected status: %w", err)
+	}
+	return nil
+}
+
+func (c *Client) syncDeviceIdentityAndStatus(ctx context.Context) error {
+	if c == nil || c.WAClient == nil || c.WAClient.Store == nil || c.DeviceInfo == nil || c.wMeow == nil {
+		return fmt.Errorf("whatsapp client identity is not initialized")
+	}
+	if c.WAClient.Store.ID == nil {
+		return fmt.Errorf("whatsapp identity is not paired")
+	}
+	jid := c.WAClient.Store.ID.String()
+	if err := syncConnectedDeviceIdentity(ctx, c.wMeow.deviceService, c.DeviceInfo.ID, jid); err != nil {
+		return err
+	}
+	c.DeviceInfo.Jid = nihil.String(jid)
+	return nil
 }
 
 func (c *Client) SetClient(waClient *whatsmeow.Client) {
@@ -85,10 +128,13 @@ func (c *Client) EventHandler(rawEvt any) {
 			c.wMeow.log.Info("Marked self as available", "device", c.DeviceInfo.Name)
 		}
 		c.wMeow.log.Info("Setting up status connection", "device", c.DeviceInfo.Name)
-		err = c.wMeow.deviceService.SetDeviceStatusConnectedByPublicID(context.Background(), c.DeviceInfo.ID)
-		if err != nil {
-			c.wMeow.log.Error("Failed to set user connected", "device", c.DeviceInfo.Name, "error", err)
+		if err := c.syncDeviceIdentityAndStatus(context.Background()); err != nil {
+			c.wMeow.log.Error("Failed to persist WhatsApp identity/status", "device", c.DeviceInfo.Name, "error", err)
 			return
+		}
+	case *events.Disconnected:
+		if err := c.wMeow.deviceService.SetDeviceStatusDisconnectedByPublicID(context.Background(), c.DeviceInfo.ID); err != nil {
+			c.wMeow.log.Error("Failed to set user disconnected", "device", c.DeviceInfo.Name, "error", err)
 		}
 	case *events.PairSuccess:
 		c.wMeow.log.Info("QR Pair Success", "device", c.DeviceInfo.Name)

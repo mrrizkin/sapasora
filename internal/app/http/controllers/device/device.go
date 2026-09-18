@@ -141,6 +141,7 @@ func (c *DeviceController) Edit(ctx *fiber.Ctx) error {
 // @Param        limit   query  int    false "Limit"
 // @Param        search  query  string false "Search"
 // @Success      200 {object} DeviceListResponse
+// @Security     Authorization
 // @Router       /api/v1/device [get]
 func (c *DeviceController) List(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanListDevice{})
@@ -173,6 +174,7 @@ func (c *DeviceController) List(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        id  path  string true "ID"
 // @Success      200 {object} DeviceResponse
+// @Security     Authorization
 // @Router       /api/v1/device/{id} [get]
 func (c *DeviceController) Get(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
@@ -200,9 +202,9 @@ func (c *DeviceController) Get(ctx *fiber.Ctx) error {
 // @Description  Returns the device resolved by the Authorization header. The device token is never accepted in the URL.
 // @Tags         Device
 // @Produce      json
-// @Security     X-API-KEY
 // @Success      200 {object} DeviceResponse
 // @Failure      401 {object} map[string]string
+// @Security     Authorization
 // @Router       /api/v1/device/by-token [get]
 func (c *DeviceController) GetDeviceByToken(ctx *fiber.Ctx) error {
 	// AuthenticationMiddleware is the only component allowed to resolve a
@@ -223,6 +225,7 @@ func (c *DeviceController) GetDeviceByToken(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        device  body  DeviceStoreRequest true "Body"
 // @Success      200 {object} DeviceResponse
+// @Security     Authorization
 // @Router       /api/v1/device [post]
 func (c *DeviceController) Store(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanStoreDevice{})
@@ -299,6 +302,7 @@ func (c *DeviceController) Store(ctx *fiber.Ctx) error {
 // @Param        id  path  string true "ID"
 // @Param        device  body  DeviceUpdateRequest true "Body"
 // @Success      200 {object} DeviceResponse
+// @Security     Authorization
 // @Router       /api/v1/device/{id} [put]
 func (c *DeviceController) Update(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
@@ -375,6 +379,7 @@ func (c *DeviceController) Update(ctx *fiber.Ctx) error {
 // @Param        id  path  string true "ID"
 // @Param        status  body  DeviceStatusRequest true "Body"
 // @Success      200 {object} DeviceResponse
+// @Security     Authorization
 // @Router       /api/v1/device/{id}/status [put]
 func (c *DeviceController) UpdateStatus(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
@@ -427,6 +432,7 @@ func (c *DeviceController) UpdateStatus(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        id  path  string true "ID"
 // @Success      200 {object} DeviceResponse
+// @Security     Authorization
 // @Router       /api/v1/device/{id} [delete]
 func (c *DeviceController) Destroy(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")

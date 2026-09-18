@@ -64,6 +64,7 @@ type Whatsmeow struct {
 
 	startupMu        sync.RWMutex
 	lastStartupError error
+	metrics          *providerstartup.LifecycleMetrics
 
 	container *sqlstore.Container
 	log       *logger.Logger
@@ -116,6 +117,7 @@ func NewWhatsmeow(
 
 		deviceService: deviceService,
 		stopStartup:   stopStartup,
+		metrics:       providerstartup.NewLifecycleMetrics(),
 	}
 
 	lc.Append(fx.Hook{
@@ -463,15 +465,26 @@ func (w *Whatsmeow) connectWithStartupSlot(
 	client *whatsmeow.Client,
 ) error {
 	if w.startupSem == nil {
-		return connectWithTimeout(ctx, client)
+		return w.recordConnectionAttempt(ctx, client)
 	}
 	select {
 	case w.startupSem <- struct{}{}:
 		defer func() { <-w.startupSem }()
-		return connectWithTimeout(ctx, client)
+		return w.recordConnectionAttempt(ctx, client)
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func (w *Whatsmeow) recordConnectionAttempt(ctx context.Context, client *whatsmeow.Client) error {
+	w.metrics.RecordStartupAttempt("whatsapp")
+	err := connectWithTimeout(ctx, client)
+	if err != nil {
+		w.metrics.RecordStartupFailure("whatsapp")
+		return err
+	}
+	w.metrics.RecordStartupSuccess("whatsapp")
+	return nil
 }
 
 func connectWithTimeout(ctx context.Context, client *whatsmeow.Client) error {
@@ -561,6 +574,12 @@ func (w *Whatsmeow) CallHookFile(
 	}
 }
 
+// LifecycleMetrics returns the provider lifecycle counters for operational
+// inspection and metrics export.
+func (w *Whatsmeow) LifecycleMetrics() *providerstartup.LifecycleMetrics {
+	return w.metrics
+}
+
 func (w *Whatsmeow) GetClient(deviceID string) (*whatsmeow.Client, error) {
 	if client, ok := w.clientStore.Get(deviceID); ok {
 		if client == nil {
@@ -615,6 +634,7 @@ func (w *Whatsmeow) cleanupSession(
 	client *whatsmeow.Client,
 	killchannel chan bool,
 ) {
+	w.metrics.RecordDisconnect("whatsapp")
 	w.lifecycleMu.Lock()
 	defer w.lifecycleMu.Unlock()
 

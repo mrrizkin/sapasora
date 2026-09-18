@@ -37,7 +37,7 @@ package main
 //	@tag.name Role
 //	@tag.description Role API
 //
-//	@securityDefinitions.apikey X-API-KEY
+//	@securityDefinitions.apikey Authorization
 //	@in header
 //	@name Authorization
 //	@description Provide a valid sk-dat-* or sk-dak-* token in the Authorization header; never put credentials in a URL.

@@ -2,6 +2,7 @@ package whatsapp
 
 import (
 	"encoding/base64"
+	"errors"
 	"testing"
 )
 
@@ -46,7 +47,7 @@ func TestDecodeMediaDataURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			decoded, err := decodeMediaDataURL(tt.value, tt.allowed...)
+			decoded, err := decodeMediaDataURL(tt.value, 1024, tt.allowed...)
 			if tt.wantError {
 				if err == nil {
 					t.Fatal("expected validation error")
@@ -60,6 +61,23 @@ func TestDecodeMediaDataURL(t *testing.T) {
 				t.Fatalf("decoded data = %q, want media", decoded.Data)
 			}
 		})
+	}
+}
+
+func TestDecodeMediaDataURLRejectsOversizedPayload(t *testing.T) {
+	value := "data:image/png;base64," + base64.StdEncoding.EncodeToString([]byte("12345"))
+
+	_, err := decodeMediaDataURL(value, 4, "image/*")
+	if !errors.Is(err, ErrMediaTooLarge) {
+		t.Fatalf("decodeMediaDataURL() error = %v, want ErrMediaTooLarge", err)
+	}
+
+	decoded, err := decodeMediaDataURL(value, 5, "image/*")
+	if err != nil {
+		t.Fatalf("decodeMediaDataURL() at limit error = %v", err)
+	}
+	if len(decoded.Data) != 5 {
+		t.Fatalf("decoded data length = %d, want 5", len(decoded.Data))
 	}
 }
 

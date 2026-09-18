@@ -42,6 +42,7 @@ func NewGatewayController(
 // @Produce      json
 // @Param        device  body  gateway.CheckUserRequest true "Body"
 // @Success      200 {object} gateway.CheckUserResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/check-user [post]
 func (c *GatewayController) CheckUser(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanCheckUserGateway{})
@@ -80,6 +81,7 @@ func (c *GatewayController) CheckUser(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        device  body  gateway.ConnectRequest true "Body"
 // @Success      200 {object} GatewayResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/connect [post]
 func (c *GatewayController) Connect(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanConnectGateway{})
@@ -120,6 +122,7 @@ func (c *GatewayController) Connect(ctx *fiber.Ctx) error {
 // @Accept       json
 // @Produce      json
 // @Success      200 {object} GatewayResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/disconnect [post]
 func (c *GatewayController) Disconnect(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanDisconnectGateway{})
@@ -156,6 +159,7 @@ func (c *GatewayController) Disconnect(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        device  body  gateway.GetAvatarRequest true "Body"
 // @Success      200 {object} gateway.GetAvatarResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/get-avatar [post]
 func (c *GatewayController) GetAvatar(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanGetAvatarGateway{})
@@ -193,6 +197,7 @@ func (c *GatewayController) GetAvatar(ctx *fiber.Ctx) error {
 // @Accept       json
 // @Produce      json
 // @Success      200 {object} gateway.GetContactsResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/get-contacts [post]
 func (c *GatewayController) GetContacts(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanGetContactsGateway{})
@@ -225,6 +230,7 @@ func (c *GatewayController) GetContacts(ctx *fiber.Ctx) error {
 // @Accept       json
 // @Produce      json
 // @Success      200 {object} gateway.GetQRResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/get-qr [get]
 func (c *GatewayController) GetQR(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanGetQRGateway{})
@@ -269,6 +275,7 @@ func (c *GatewayController) GetQR(ctx *fiber.Ctx) error {
 // @Accept       json
 // @Produce      json
 // @Success      200 {object} gateway.GetStatusResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/get-status [get]
 func (c *GatewayController) GetStatus(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanGetStatusGateway{})
@@ -302,6 +309,7 @@ func (c *GatewayController) GetStatus(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        device  body  gateway.GetUserRequest true "Body"
 // @Success      200 {object} gateway.GetUserResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/get-user [post]
 func (c *GatewayController) GetUser(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanGetUserGateway{})
@@ -339,6 +347,7 @@ func (c *GatewayController) GetUser(ctx *fiber.Ctx) error {
 // @Accept       json
 // @Produce      json
 // @Success      200 {object} GatewayResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/logout [post]
 func (c *GatewayController) Logout(ctx *fiber.Ctx) error {
 	device, ok := ctx.Locals("device").(*device.Device)
@@ -375,6 +384,7 @@ func (c *GatewayController) Logout(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        device  body  gateway.SendAudioRequest true "Body"
 // @Success      200 {object} gateway.SendResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/send-audio [post]
 func (c *GatewayController) SendAudio(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanSendAudioGateway{})
@@ -413,6 +423,7 @@ func (c *GatewayController) SendAudio(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        device  body  gateway.SendButtonTextRequest true "Body"
 // @Success      200 {object} gateway.SendResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/send-button [post]
 func (c *GatewayController) SendButton(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanSendButtonGateway{})
@@ -451,6 +462,7 @@ func (c *GatewayController) SendButton(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        device  body  gateway.ChatPresenceRequest true "Body"
 // @Success      200 {object} GatewayResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/send-chat-presence [post]
 func (c *GatewayController) SendChatPresence(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanSendChatPresenceGateway{})
@@ -492,6 +504,7 @@ func (c *GatewayController) SendChatPresence(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        device  body  gateway.SendContactRequest true "Body"
 // @Success      200 {object} gateway.SendResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/send-contact [post]
 func (c *GatewayController) SendContact(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanSendContactGateway{})
@@ -530,6 +543,7 @@ func (c *GatewayController) SendContact(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        device  body  gateway.SendDocumentRequest true "Body"
 // @Success      200 {object} gateway.SendResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/send-document [post]
 func (c *GatewayController) SendDocument(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanSendDocumentGateway{})
@@ -568,6 +582,7 @@ func (c *GatewayController) SendDocument(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        device  body  gateway.SendImageRequest true "Body"
 // @Success      200 {object} gateway.SendResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/send-image [post]
 func (c *GatewayController) SendImage(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanSendImageGateway{})
@@ -606,6 +621,7 @@ func (c *GatewayController) SendImage(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        device  body  gateway.SendListRequest true "Body"
 // @Success      200 {object} gateway.SendResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/send-list [post]
 func (c *GatewayController) SendList(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanSendListGateway{})
@@ -644,6 +660,7 @@ func (c *GatewayController) SendList(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        device  body  gateway.SendLocationRequest true "Body"
 // @Success      200 {object} gateway.SendResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/send-location [post]
 func (c *GatewayController) SendLocation(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanSendLocationGateway{})
@@ -682,6 +699,7 @@ func (c *GatewayController) SendLocation(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        device  body  gateway.SendStickerRequest true "Body"
 // @Success      200 {object} gateway.SendResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/send-sticker [post]
 func (c *GatewayController) SendSticker(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanSendStickerGateway{})
@@ -720,6 +738,7 @@ func (c *GatewayController) SendSticker(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        device  body  gateway.SendTextRequest true "Body"
 // @Success      200 {object} gateway.SendResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/send-text [post]
 func (c *GatewayController) SendText(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanSendTextGateway{})
@@ -758,6 +777,7 @@ func (c *GatewayController) SendText(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        device  body  gateway.SendVideoRequest true "Body"
 // @Success      200 {object} gateway.SendResponse
+// @Security     Authorization
 // @Router       /api/v1/gateway/send-video [post]
 func (c *GatewayController) SendVideo(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanSendVideoGateway{})

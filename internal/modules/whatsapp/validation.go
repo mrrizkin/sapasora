@@ -11,9 +11,15 @@ import (
 	"github.com/vincent-petithory/dataurl"
 )
 
-const providerOperationTimeout = 30 * time.Second
+const (
+	providerOperationTimeout = 30 * time.Second
+	defaultMediaUploadLimit  = 8 * 1024 * 1024
+)
 
-var ErrInvalidDataURL = errors.New("invalid media data URL")
+var (
+	ErrInvalidDataURL = errors.New("invalid media data URL")
+	ErrMediaTooLarge  = errors.New("media exceeds configured upload limit")
+)
 
 func providerContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	if ctx == nil {
@@ -22,15 +28,31 @@ func providerContext(ctx context.Context) (context.Context, context.CancelFunc) 
 	return context.WithTimeout(ctx, providerOperationTimeout)
 }
 
-// decodeMediaDataURL validates a base64 data URL and its MIME type before decoding.
-func decodeMediaDataURL(value string, allowedMIMEs ...string) (*dataurl.DataURL, error) {
+// decodeMediaDataURL validates a base64 data URL, its MIME type, and decoded
+// size before handing the bytes to a provider upload operation.
+func decodeMediaDataURL(value string, maxBytes int, allowedMIMEs ...string) (*dataurl.DataURL, error) {
 	if strings.TrimSpace(value) == "" || !strings.HasPrefix(value, "data:") {
 		return nil, ErrInvalidDataURL
+	}
+	if maxBytes <= 0 {
+		return nil, ErrMediaTooLarge
+	}
+
+	// Reject clearly oversized base64 payloads before DecodeString allocates the
+	// decoded byte slice. The decoded length check below remains authoritative.
+	if comma := strings.IndexByte(value, ','); comma >= 0 {
+		maxEncodedBytes := ((maxBytes + 2) / 3) * 4
+		if len(value)-comma-1 > maxEncodedBytes {
+			return nil, fmt.Errorf("%w: limit is %d bytes", ErrMediaTooLarge, maxBytes)
+		}
 	}
 
 	decoded, err := dataurl.DecodeString(value)
 	if err != nil || decoded.Encoding != dataurl.EncodingBase64 || len(decoded.Data) == 0 {
 		return nil, ErrInvalidDataURL
+	}
+	if len(decoded.Data) > maxBytes {
+		return nil, fmt.Errorf("%w: limit is %d bytes", ErrMediaTooLarge, maxBytes)
 	}
 
 	mediaType := decoded.MediaType.Type + "/" + decoded.MediaType.Subtype

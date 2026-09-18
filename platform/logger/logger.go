@@ -129,11 +129,7 @@ func (l *Logger) log(event *zerolog.Event, msg string, keysAndValues ...any) {
 		if i+1 < len(keysAndValues) {
 			key, val := keysAndValues[i], keysAndValues[i+1]
 			if keyStr, ok := key.(string); ok {
-				if varErr, ok := val.(error); ok {
-					event = event.Interface(keyStr, varErr.Error())
-				} else {
-					event = event.Interface(keyStr, val)
-				}
+				event = event.Interface(keyStr, redactField(keyStr, val))
 			}
 		}
 	}

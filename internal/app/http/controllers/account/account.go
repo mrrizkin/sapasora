@@ -42,6 +42,7 @@ func NewAccountController(
 // @Param        limit   query  int    false "Limit"
 // @Param        search  query  string false "Search"
 // @Success      200 {object} AccountListResponse
+// @Security     Authorization
 // @Router       /api/v1/account [get]
 func (c *AccountController) List(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanListAccount{})
@@ -74,6 +75,7 @@ func (c *AccountController) List(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        id  path  string true "ID"
 // @Success      200 {object} AccountResponse
+// @Security     Authorization
 // @Router       /api/v1/account/{id} [get]
 func (c *AccountController) Get(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
@@ -104,6 +106,7 @@ func (c *AccountController) Get(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        account  body  AccountStoreRequest true "Body"
 // @Success      200 {object} AccountResponse
+// @Security     Authorization
 // @Router       /api/v1/account [post]
 func (c *AccountController) Store(ctx *fiber.Ctx) error {
 	gate := satpam.New(&policies.CanStoreAccount{})
@@ -155,6 +158,7 @@ func (c *AccountController) Store(ctx *fiber.Ctx) error {
 // @Param        id  path  string true "ID"
 // @Param        account  body  AccountUpdateRequest true "Body"
 // @Success      200 {object} AccountResponse
+// @Security     Authorization
 // @Router       /api/v1/account/{id} [put]
 func (c *AccountController) Update(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
@@ -204,6 +208,7 @@ func (c *AccountController) Update(ctx *fiber.Ctx) error {
 // @Param        id  path  string true "ID"
 // @Param        account  body  AccountUpdatePasswordRequest true "Body"
 // @Success      200 {object} AccountResponse
+// @Security     Authorization
 // @Router       /api/v1/account/{id}/password [put]
 func (c *AccountController) UpdatePassword(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
@@ -253,6 +258,7 @@ func (c *AccountController) UpdatePassword(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        id  path  string true "ID"
 // @Success      200 {object} AccountResponse
+// @Security     Authorization
 // @Router       /api/v1/account/{id} [delete]
 func (c *AccountController) Destroy(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")

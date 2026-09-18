@@ -15,6 +15,8 @@ var (
 	ErrNotLoggedIn              = errors.New("not logged in")
 	ErrNoSession                = errors.New("no session")
 	ErrClientAlreadyConnected   = errors.New("client already connected")
+	ErrProviderStopping         = errors.New("telegram provider is stopping")
+	ErrAsyncConnectionPanic     = errors.New("telegram async connection panicked")
 	ErrFailedToConnect          = errors.New("failed to connect")
 	ErrInvalidPhoneNumber       = errors.New("invalid phone number")
 	ErrEmptyBody                = errors.New("body cannot be empty")

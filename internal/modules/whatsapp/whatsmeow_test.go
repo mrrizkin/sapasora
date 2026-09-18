@@ -1,6 +1,7 @@
 package whatsapp
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -27,6 +28,48 @@ func TestParseJID(t *testing.T) {
 				t.Fatalf("ParseJID(%q) ok = %v, want %v", tt.jid, ok, tt.ok)
 			}
 		})
+	}
+}
+
+type connectedDeviceWriterStub struct {
+	jid           string
+	connected     bool
+	jidCalls      int
+	connectedCall int
+}
+
+func (s *connectedDeviceWriterStub) SetDeviceJIDByPublicID(_ context.Context, _ string, jid string) error {
+	s.jid = jid
+	s.jidCalls++
+	return nil
+}
+
+func (s *connectedDeviceWriterStub) SetDeviceStatusConnectedByPublicID(context.Context, string) error {
+	s.connected = true
+	s.connectedCall++
+	return nil
+}
+
+func TestSyncConnectedDeviceIdentityPersistsJIDAndStatus(t *testing.T) {
+	service := &connectedDeviceWriterStub{}
+	if err := syncConnectedDeviceIdentity(context.Background(), service, "device", "628123456789@s.whatsapp.net"); err != nil {
+		t.Fatalf("syncConnectedDeviceIdentity() error = %v", err)
+	}
+	if service.jid != "628123456789@s.whatsapp.net" || !service.connected {
+		t.Fatalf("stored identity/status = %q/%v, want JID and connected", service.jid, service.connected)
+	}
+	if service.jidCalls != 1 || service.connectedCall != 1 {
+		t.Fatalf("calls = jid:%d connected:%d, want one each", service.jidCalls, service.connectedCall)
+	}
+}
+
+func TestSyncConnectedDeviceIdentityRejectsEmptyJID(t *testing.T) {
+	service := &connectedDeviceWriterStub{}
+	if err := syncConnectedDeviceIdentity(context.Background(), service, "device", "  "); err == nil {
+		t.Fatal("syncConnectedDeviceIdentity() error = nil, want empty JID error")
+	}
+	if service.jidCalls != 0 || service.connectedCall != 0 {
+		t.Fatal("device service was called for an empty JID")
 	}
 }
 
