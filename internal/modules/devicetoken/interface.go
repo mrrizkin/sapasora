@@ -9,6 +9,7 @@ type DeviceTokenService interface {
 	CreateDeviceToken(ctx context.Context, devicetoken *DeviceToken) error
 	GetDeviceToken(ctx context.Context, id int) (*DeviceToken, error)
 	GetDeviceTokenByPublicID(ctx context.Context, publicID string) (*DeviceToken, error)
+	GetDeviceTokenByPublicIDForUser(ctx context.Context, publicID string, userID uint) (*DeviceToken, error)
 	GetDeviceTokenByToken(ctx context.Context, token string) (*DeviceToken, error)
 	GetDeviceTokenByDeviceID(ctx context.Context, deviceID string) (*DeviceToken, error)
 	UpdateDeviceToken(ctx context.Context, devicetoken *DeviceToken) error
@@ -20,6 +21,7 @@ type DeviceTokenRepository interface {
 	CreateDeviceToken(ctx context.Context, devicetoken *DeviceToken) error
 	GetDeviceToken(ctx context.Context, id int) (*DeviceToken, error)
 	GetDeviceTokenByPublicID(ctx context.Context, publicID string) (*DeviceToken, error)
+	GetDeviceTokenByPublicIDForUser(ctx context.Context, publicID string, userID uint) (*DeviceToken, error)
 	GetDeviceTokenByToken(ctx context.Context, token string) (*DeviceToken, error)
 	GetDeviceTokenByDeviceID(ctx context.Context, deviceID string) (*DeviceToken, error)
 	UpdateDeviceToken(ctx context.Context, devicetoken *DeviceToken) error

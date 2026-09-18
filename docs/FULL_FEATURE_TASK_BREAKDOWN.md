@@ -86,17 +86,17 @@
 
 ## T0.4 Perbaiki ownership credential dan device
 
-- [ ] Hilangkan kepercayaan pada `DeviceID` dan `UserID` yang dikirim client.
-- [ ] Turunkan owner dari authenticated workspace/actor.
-- [ ] Validasi device benar-benar dimiliki workspace actor.
-- [ ] Validasi API key owner dan scope.
-- [ ] Validasi device token hanya dapat dibuat untuk device yang authorized.
-- [ ] Tambahkan test create token lintas owner.
-- [ ] Tambahkan test update device lintas owner.
-- [ ] Tambahkan test delete device lintas owner.
-- [ ] Tambahkan test API key lintas owner.
-- [ ] Tambahkan repository helper untuk tenant-scoped lookup.
-- [ ] Larang controller melakukan lookup global berdasarkan ID saja.
+- [x] Hilangkan kepercayaan pada `DeviceID` dan `UserID` yang dikirim client.
+- [x] Turunkan owner dari authenticated workspace/actor.
+- [x] Validasi device benar-benar dimiliki workspace actor.
+- [x] Validasi API key owner dan scope.
+- [x] Validasi device token hanya dapat dibuat untuk device yang authorized.
+- [x] Tambahkan test create token lintas owner.
+- [x] Tambahkan test update device lintas owner.
+- [x] Tambahkan test delete device lintas owner.
+- [x] Tambahkan test API key lintas owner.
+- [x] Tambahkan repository helper untuk tenant-scoped lookup.
+- [x] Larang controller melakukan lookup global berdasarkan ID saja.
 
 ## T0.5 Perbaiki provider dispatch gateway
 

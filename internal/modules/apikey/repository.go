@@ -76,6 +76,18 @@ func (r *APIKeyRepositoryImpl) GetAPIKeyByPublicID(
 	return &result, q.Error
 }
 
+func (r *APIKeyRepositoryImpl) GetAPIKeyByPublicIDForUser(
+	ctx context.Context,
+	publicID string,
+	userID uint,
+) (*APIKey, error) {
+	var result APIKey
+	q := r.db.WithContext(ctx).
+		Where("public_id = ? AND user_id = ?", publicID, userID).
+		First(&result)
+	return &result, q.Error
+}
+
 func (r *APIKeyRepositoryImpl) GetAPIKeyByKey(
 	ctx context.Context,
 	key string,

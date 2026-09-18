@@ -226,19 +226,13 @@ func (c *DeviceController) Store(ctx *fiber.Ctx) error {
 	}
 	gate.AuthorizeAllPermissions(subject)
 
-	var payload DeviceStoreRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	ownerID, err := c.GetOwnerID(ctx, "apikey", "account")
+	if err != nil {
 		return err
 	}
 
-	if payload.UserID == "" {
-		if account, ok := ctx.Locals("account").(*account.Account); ok {
-			payload.UserID = account.PublicID
-		}
-	}
-
-	user, err := c.accountService.GetAccountByPublicID(ctx.Context(), payload.UserID)
-	if err != nil {
+	var payload DeviceStoreRequest
+	if err := ctx.BodyParser(&payload); err != nil {
 		return err
 	}
 
@@ -272,7 +266,7 @@ func (c *DeviceController) Store(ctx *fiber.Ctx) error {
 		Name:        payload.Name,
 		Type:        payload.Type,
 		Status:      device.DeviceStatusInactive,
-		UserID:      user.ID,
+		UserID:      ownerID,
 		Events:      payload.Events,
 		ExpiredAt:   payload.ExpiredAt,
 		Webhook:     payload.Webhook,
@@ -307,12 +301,6 @@ func (c *DeviceController) Update(ctx *fiber.Ctx) error {
 		return err
 	}
 
-	device, err := c.deviceService.GetDeviceByPublicID(ctx.Context(), id)
-	if err != nil {
-		return err
-	}
-
-	gate := satpam.New(&policies.CanUpdateDevice{}).AddResource("device", device)
 	subject, err := c.GetSubject(ctx, "apikey", "account")
 	if err != nil {
 		return err
@@ -320,13 +308,18 @@ func (c *DeviceController) Update(ctx *fiber.Ctx) error {
 	if subject == nil {
 		return fiber.ErrUnauthorized
 	}
-
-	gate.AuthorizeAllPermissions(subject)
-
-	user, err := c.accountService.GetAccountByPublicID(ctx.Context(), payload.UserID)
+	ownerID, err := c.GetOwnerID(ctx, "apikey", "account")
 	if err != nil {
 		return err
 	}
+
+	device, err := c.deviceService.GetDeviceByPublicIDForUser(ctx.Context(), id, ownerID)
+	if err != nil {
+		return c.OwnerLookupError(err)
+	}
+
+	gate := satpam.New(&policies.CanUpdateDevice{}).AddResource("device", device)
+	gate.AuthorizeAllPermissions(subject)
 
 	if payload.Permissions == nil {
 		payload.Permissions = &permission.Permission{
@@ -358,7 +351,6 @@ func (c *DeviceController) Update(ctx *fiber.Ctx) error {
 	device.Webhook = payload.Webhook
 	device.Events = payload.Events
 	device.ExpiredAt = payload.ExpiredAt
-	device.UserID = user.ID
 	device.Permissions = payload.Permissions
 
 	if err := c.deviceService.UpdateDevice(ctx.Context(), device); err != nil {
@@ -385,12 +377,6 @@ func (c *DeviceController) UpdateStatus(ctx *fiber.Ctx) error {
 		return err
 	}
 
-	device, err := c.deviceService.GetDeviceByPublicID(ctx.Context(), id)
-	if err != nil {
-		return err
-	}
-
-	gate := satpam.New(&policies.CanUpdateDevice{}).AddResource("device", device)
 	subject, err := c.GetSubject(ctx, "apikey", "account")
 	if err != nil {
 		return err
@@ -398,7 +384,17 @@ func (c *DeviceController) UpdateStatus(ctx *fiber.Ctx) error {
 	if subject == nil {
 		return fiber.ErrUnauthorized
 	}
+	ownerID, err := c.GetOwnerID(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
 
+	device, err := c.deviceService.GetDeviceByPublicIDForUser(ctx.Context(), id, ownerID)
+	if err != nil {
+		return c.OwnerLookupError(err)
+	}
+
+	gate := satpam.New(&policies.CanUpdateDevice{}).AddResource("device", device)
 	gate.AuthorizeAllPermissions(subject)
 
 	if payload.Status == device.Status {
@@ -428,12 +424,6 @@ func (c *DeviceController) UpdateStatus(ctx *fiber.Ctx) error {
 // @Router       /api/v1/device/{id} [delete]
 func (c *DeviceController) Destroy(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
-	device, err := c.deviceService.GetDeviceByPublicID(ctx.Context(), id)
-	if err != nil {
-		return err
-	}
-
-	gate := satpam.New(&policies.CanDeleteDevice{}).AddResource("device", device)
 	subject, err := c.GetSubject(ctx, "apikey", "account")
 	if err != nil {
 		return err
@@ -441,7 +431,17 @@ func (c *DeviceController) Destroy(ctx *fiber.Ctx) error {
 	if subject == nil {
 		return fiber.ErrUnauthorized
 	}
+	ownerID, err := c.GetOwnerID(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
 
+	device, err := c.deviceService.GetDeviceByPublicIDForUser(ctx.Context(), id, ownerID)
+	if err != nil {
+		return c.OwnerLookupError(err)
+	}
+
+	gate := satpam.New(&policies.CanDeleteDevice{}).AddResource("device", device)
 	gate.AuthorizeAllPermissions(subject)
 
 	if err := c.deviceService.DeleteDevice(ctx.Context(), device); err != nil {

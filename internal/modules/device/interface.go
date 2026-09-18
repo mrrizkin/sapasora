@@ -9,6 +9,7 @@ type DeviceService interface {
 	CreateDevice(ctx context.Context, device *Device) error
 	GetDevice(ctx context.Context, id int) (*Device, error)
 	GetDeviceByPublicID(ctx context.Context, publicID string) (*Device, error)
+	GetDeviceByPublicIDForUser(ctx context.Context, publicID string, userID uint) (*Device, error)
 	GetDeviceByToken(ctx context.Context, token string) (*Device, error)
 	UpdateDevice(ctx context.Context, device *Device) error
 	DeleteDevice(ctx context.Context, device *Device) error
@@ -43,6 +44,7 @@ type DeviceRepository interface {
 	CreateDevice(ctx context.Context, device *Device) error
 	GetDevice(ctx context.Context, id int) (*Device, error)
 	GetDeviceByPublicID(ctx context.Context, publicID string) (*Device, error)
+	GetDeviceByPublicIDForUser(ctx context.Context, publicID string, userID uint) (*Device, error)
 	GetDeviceByToken(ctx context.Context, token string) (*Device, error)
 	UpdateDevice(ctx context.Context, device *Device) error
 	DeleteDevice(ctx context.Context, device *Device) error

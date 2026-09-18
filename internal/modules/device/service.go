@@ -42,6 +42,14 @@ func (s *DeviceServiceImpl) GetDeviceByPublicID(
 	return s.repo.GetDeviceByPublicID(ctx, publicID)
 }
 
+func (s *DeviceServiceImpl) GetDeviceByPublicIDForUser(
+	ctx context.Context,
+	publicID string,
+	userID uint,
+) (*Device, error) {
+	return s.repo.GetDeviceByPublicIDForUser(ctx, publicID, userID)
+}
+
 func (s *DeviceServiceImpl) GetDeviceByToken(
 	ctx context.Context,
 	token string,
