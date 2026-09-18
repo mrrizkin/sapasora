@@ -2,12 +2,12 @@
 package auth
 
 import (
+	"encoding/json"
 	"sapasora/internal/app/http/controllers"
 	"sapasora/internal/modules/account"
 	"sapasora/internal/modules/role"
 	"sapasora/platform/support/hash"
 	"sapasora/platform/ui/inertia"
-	"encoding/json"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -39,8 +39,8 @@ func (c *AuthController) Index(ctx *fiber.Ctx) error {
 
 func (c *AuthController) Login(ctx *fiber.Ctx) error {
 	var payload LoginRequest
-	if err := ctx.BodyParser(&payload); err != nil {
-		return fiber.ErrUnprocessableEntity
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
+		return err
 	}
 
 	account, err := c.accountService.GetAccountByUsername(ctx.Context(), payload.Username)

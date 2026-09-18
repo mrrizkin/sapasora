@@ -120,8 +120,17 @@ func (c *Controller) InertiaBack(ctx *fiber.Ctx, status ...int) error {
 	return c.inertia.Back(ctx, status...)
 }
 
+func (c *Controller) validation() *validator.Validator {
+	if c.valid == nil {
+		// Keep lightweight controller tests safe when they construct a controller
+		// without the production dependency graph.
+		c.valid = validator.NewValidator()
+	}
+	return c.valid
+}
+
 func (c *Controller) BodyParserValidate(ctx *fiber.Ctx, out any) error {
-	return c.valid.ParseBodyAndValidate(ctx, out)
+	return c.validation().ParseBodyAndValidate(ctx, out)
 }
 
 func (c *Controller) QueryParserValidate(ctx *fiber.Ctx, out any) error {
@@ -129,13 +138,13 @@ func (c *Controller) QueryParserValidate(ctx *fiber.Ctx, out any) error {
 }
 
 func (c *Controller) Validate(data any) []validator.ErrorResponse {
-	return c.valid.Validate(data)
+	return c.validation().Validate(data)
 }
 
 func (c *Controller) FormatValidationErrors(errs []validator.ErrorResponse) []string {
-	return c.valid.Format(errs)
+	return c.validation().Format(errs)
 }
 
 func (c *Controller) MustValidate(data any) error {
-	return c.valid.MustValidate(data)
+	return c.validation().MustValidate(data)
 }

@@ -241,7 +241,7 @@ func (c *DeviceController) Store(ctx *fiber.Ctx) error {
 	}
 
 	var payload DeviceStoreRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -308,7 +308,7 @@ func (c *DeviceController) Store(ctx *fiber.Ctx) error {
 func (c *DeviceController) Update(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	var payload DeviceUpdateRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -388,7 +388,7 @@ func (c *DeviceController) Update(ctx *fiber.Ctx) error {
 func (c *DeviceController) UpdateStatus(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	var payload DeviceStatusRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 

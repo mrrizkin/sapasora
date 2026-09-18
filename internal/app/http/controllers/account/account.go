@@ -120,7 +120,7 @@ func (c *AccountController) Store(ctx *fiber.Ctx) error {
 	gate.AuthorizeAllPermissions(subject)
 
 	var payload AccountStoreRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -163,7 +163,7 @@ func (c *AccountController) Store(ctx *fiber.Ctx) error {
 func (c *AccountController) Update(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	var payload AccountUpdateRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 
@@ -213,7 +213,7 @@ func (c *AccountController) Update(ctx *fiber.Ctx) error {
 func (c *AccountController) UpdatePassword(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	var payload AccountUpdatePasswordRequest
-	if err := ctx.BodyParser(&payload); err != nil {
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
 		return err
 	}
 

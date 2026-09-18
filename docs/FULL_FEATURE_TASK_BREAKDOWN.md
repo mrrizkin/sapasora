@@ -342,8 +342,10 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 
 ## P2.6 Validation foundation
 
-- [ ] Definisikan validation library/pattern backend.
-- [ ] Validasi semua request body.
+- [x] Definisikan validation library/pattern backend.
+- [x] Validasi semua request body.
+
+> Scope note (P2.6 slice): the existing `platform/validator` is now used for request-body parsing and validation in the device, account, API-key, device-token, role, auth, and gateway controllers. These payloads have focused required/enum/length/URL validation and malformed bodies return 422. Query/path/media/frontend/provider validation remains open.
 - [ ] Validasi query pagination/filter.
 - [ ] Validasi path parameter.
 - [ ] Validasi URL/hostname.
