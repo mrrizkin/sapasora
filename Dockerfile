@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-ARG GO_VERSION=1.25.1
+ARG GO_VERSION=1.26.0
 ARG NODE_VERSION=22-bookworm-slim
 ARG TDLIB_COMMIT=971684a3dcc7bdf99eec024e1c4f57ae729d6d53
 
