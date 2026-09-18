@@ -1,0 +1,17 @@
+package view
+
+templ Swagger(swaggerPath string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>Swagger API Reference - Scalar</title>
+			<link rel="icon" type="image/png" href="/favicon-32x32.png" sizes="32x32"/>
+		</head>
+		<body>
+			<script id="api-reference" data-url={ swaggerPath }></script>
+			<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+		</body>
+	</html>
+}

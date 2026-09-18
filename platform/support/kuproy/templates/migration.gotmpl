@@ -1,0 +1,89 @@
+{{- $data := . -}}
+// Package {{ $data.PackageName }} provides the migrations for the database
+package {{ $data.PackageName }}
+
+import "{{ $data.ModulePath }}/platform/database/migrations"
+
+type {{ $data.StructName }} struct{}
+
+// New{{ $data.StructName }} creates a new {{ $data.StructName }} instance
+// @wired:provide(group=migrations)
+func New{{ $data.StructName }}() migrations.Migration {
+	return &{{ $data.StructName }}{}
+}
+
+func (m *{{ $data.StructName }}) Name() string { return "{{ $data.Name }}" }
+
+func (m *{{ $data.StructName }}) Up(schema *migrations.Schema) error {
+    {{ template "upContent" . }}
+}
+
+func (m *{{ $data.StructName }}) Down(schema *migrations.Schema) error {
+    {{ template "downContent" . }}
+}
+
+{{- define "upContent" -}}
+    {{ if eq .MigrationType "create_table" -}}
+    return schema.Create("{{ .TableName }}", func(table *migrations.Blueprint) {
+        table.ID()
+        table.Timestamps()
+        table.SoftDeletes()
+
+        {{- range .Fields }}
+        {{ template "migration_field" . }}
+        {{- end }}
+        // Add your columns here
+    })
+    {{- else if eq .MigrationType "add_columns" -}}
+    return schema.Table("{{ .TableName }}", func(table *migrations.Blueprint) {
+        // Add your columns here
+        // table.String("new_column")
+    })
+    {{- else if eq .MigrationType "drop_table" -}}
+    return schema.Drop("{{ .TableName }}")
+    {{- else -}}
+    // Add your migration logic here
+    // Example: return schema.Table("table_name", func(table *migrations.Blueprint) {
+    //     table.String("new_column")
+    // })
+    return nil
+    {{- end }}
+{{- end -}}
+
+{{- define "downContent" -}}
+    {{ if eq .MigrationType "create_table" -}}
+    return schema.Drop("{{ .TableName }}")
+    {{- else if eq .MigrationType "add_columns" -}}
+    return schema.Table("{{ .TableName }}", func(table *migrations.Blueprint) {
+        // Remove your columns here
+        // table.DropColumn("new_column")
+    })
+    {{- else if eq .MigrationType "drop_table" -}}
+    // Recreate table if needed
+    return schema.Create("{{ .TableName }}", func(table *migrations.Blueprint) {
+        table.ID()
+        table.Timestamps()
+        table.SoftDeletes()
+
+        // Add your original columns here
+    })
+    {{- else -}}
+    // Add your rollback logic here
+    // Example: return schema.Table("table_name", func(table *migrations.Blueprint) {
+    //     table.DropColumn("new_column")
+    // })
+    return nil
+    {{- end }}
+{{- end -}}
+
+{{- define "migration_field" -}}
+    {{ if eq .Type "string" -}}
+    table.Text("{{ .Name }}")
+    {{- else if eq .Type "int" -}}
+    table.Integer("{{ .Name }}")
+    {{- else if eq .Type "bool" -}}
+    table.Boolean("{{ .Name }}")
+    {{- else if eq .Type "time.Time" -}}
+    table.Timestamp("{{ .Name }}")
+    {{- end }}
+{{- end -}}

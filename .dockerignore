@@ -1,0 +1,14 @@
+.git
+.serena
+node_modules
+build
+storage
+.tdlib
+public/build
+.env
+.env.*
+!.env.example
+*.log
+coverage
+playwright-report
+test-results

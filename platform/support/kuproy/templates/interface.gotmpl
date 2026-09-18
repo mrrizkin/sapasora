@@ -1,0 +1,23 @@
+{{- define "methods" -}}
+    List{{ .Entity }}(ctx context.Context, page, limit int) (*Pagination[*{{ .Entity }}], error)
+    Create{{ .Entity }}(ctx context.Context, {{ .Entity | lower }} *{{ .Entity }}) error
+    Get{{ .Entity }}(ctx context.Context, id int) (*{{ .Entity }}, error)
+    Get{{ .Entity }}ByPublicID(ctx context.Context, publicID string) (*{{ .Entity }}, error)
+    Update{{ .Entity }}(ctx context.Context, {{ .Entity | lower }} *{{ .Entity }}) error
+    Delete{{ .Entity }}(ctx context.Context, {{ .Entity | lower }} *{{ .Entity }}) error
+{{- end -}}
+
+{{- $data := . -}}
+package {{ $data.PackageName }}
+
+import (
+	"context"
+)
+
+type {{ $data.Entity }}Service interface {
+    {{ template "methods" $data }}
+}
+
+type {{ $data.Entity }}Repository interface {
+    {{ template "methods" $data }}
+}

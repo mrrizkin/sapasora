@@ -1,0 +1,120 @@
+{{- $data := . -}}
+{{- define "jsdoc" -}}
+/**
+ * @see {{ .Location }}
+ * @route {{ .Path }}
+ */
+{{- end -}}
+
+{{- define "methodsList" -}}
+[{{ range $i, $method := . }}{{ if $i }}, {{ end }}'{{ $method | lower }}'{{ end }}]
+{{- end -}}
+
+{{- define "routeDefinition" -}}
+{{ template "jsdoc" . }}
+export const {{ .Name }} = {{ template "paramsList" . }}: RouteDefinition<'{{ index .Methods 0 | lower }}'> => ({
+  url: {{ .Name }}.url({{ template "urlParamsList" . }}),
+  method: '{{ index .Methods 0 | lower }}',
+});
+
+{{ .Name }}.definition = {
+  methods: {{ template "methodsList" .Methods }},
+  url: '{{ .Path }}',
+} satisfies RouteDefinition<{{ template "methodsList" .Methods }}>;
+
+{{ template "jsdoc" . }}
+{{ .Name }}.url = {{ template "urlParams" . }} => {
+  return {{ .Name }}.definition.url{{ template "replaceParams" . }} + queryParams(options);
+};
+{{- end -}}
+
+{{- define "paramsList" -}}
+{{- if ne (len .Params) 0 -}}
+(
+{{- range $i, $param := .Params -}}
+{{- if $i -}}, {{- end -}}
+{{ $param }}: string
+{{- end -}}
+, options?: RouteQueryOptions)
+{{- else -}}
+(options?: RouteQueryOptions)
+{{- end -}}
+{{- end -}}
+
+{{- define "urlParamsList" -}}
+{{- if ne (len .Params) 0 -}}
+{{- range $i, $param := .Params -}}
+{{- if $i -}}, {{- end -}}
+{{ $param }}
+{{- end -}}
+, options
+{{- else -}}
+options
+{{- end -}}
+{{- end -}}
+
+{{- define "urlParams" -}}
+{{- if ne (len .Params) 0 -}}
+(
+{{- range $i, $param := .Params -}}
+{{- if $i -}}, {{- end -}}
+{{ $param }}: string
+{{- end -}}
+, options?: RouteQueryOptions)
+{{- else -}}
+(options?: RouteQueryOptions)
+{{- end -}}
+{{- end -}}
+
+{{- define "replaceParams" -}}
+{{- if ne (len .Params) 0 -}}
+{{- range $i, $param := .Params -}}
+{{- if $i -}}, {{- end -}}
+.replace(':{{ $param }}', encodeURIComponent({{ $param }}))
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "methodFunctions" -}}
+{{ range .Methods }}
+{{ template "jsdoc" $ }}
+{{ $.Name }}.{{ . | lower }} = {{ template "paramsList" $ }}: RouteDefinition<'{{ . | lower }}'> => ({
+  url: {{ $.Name }}.url({{ template "urlParamsList" $ }}),
+  method: '{{ . | lower }}',
+});
+{{ end }}
+{{- end -}}
+
+{{- define "formDefinition" -}}
+{{ template "jsdoc" . }}
+export const {{ .Name }}Form = {{ template "paramsList" $ }}: RouteFormDefinition<'{{ index .Methods 0 | lower }}'> => ({
+  action: {{ .Name }}.url({{ template "urlParamsList" $ }}),
+  method: '{{ index .Methods 0 | lower }}',
+});
+{{ range .Methods }}
+{{ template "jsdoc" $ }}
+{{ $.Name }}Form.{{ . | lower }} = {{ template "paramsList" $ }}: RouteFormDefinition<'{{ . | lower }}'> => ({
+  action: {{ $.Name }}.url({{ template "urlParamsList" $ }}),
+  method: '{{ . | lower }}',
+});
+{{ end }}
+{{- end -}}
+
+import { type RouteDefinition, {{- if $data.IsForm }} type RouteFormDefinition,{{ end }} type RouteQueryOptions, queryParams } from '@/js/lib/wayfinder';
+
+{{ range $data.Routes -}}
+{{ template "routeDefinition" . }}
+{{ template "methodFunctions" . }}
+{{- if $data.IsForm }}
+{{ template "formDefinition" . }}
+{{- end -}}
+{{ end -}}
+
+{{- if $data.IsDefaultExport }}
+export const {{ $data.Name }} = {
+{{ range $data.Routes }}  {{ .Name }}: Object.assign({{ .Name }}, {{ .Name }}),
+{{ end -}}
+};
+
+export default {{ $data.Name }};
+{{ end -}}

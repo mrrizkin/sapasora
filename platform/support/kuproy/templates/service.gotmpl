@@ -1,0 +1,42 @@
+{{- $data := . -}}
+package {{ $data.PackageName }}
+
+import (
+	"context"
+)
+
+type {{ $data.Entity }}ServiceImpl struct {
+    repo {{$data.Entity}}Repository
+}
+
+// New{{ $data.Entity }}Service creates a new Implementation of {{ $data.Entity }}Service
+// @wired:provide
+func New{{ $data.Entity }}Service(repo {{$data.Entity}}Repository) {{ $data.Entity }}Service {
+    return &{{ $data.Entity }}ServiceImpl{
+        repo: repo,
+    }
+}
+
+func (s *{{ $data.Entity }}ServiceImpl) List{{ $data.Entity }}(ctx context.Context, page, limit int) (*Pagination[*{{ $data.Entity }}], error) {
+    return s.repo.List{{ $data.Entity }}(ctx, page, limit)
+}
+
+func (s *{{ $data.Entity }}ServiceImpl) Create{{ $data.Entity }}(ctx context.Context, {{ .Entity | lower }} *{{ $data.Entity }}) error {
+    return s.repo.Create{{ $data.Entity }}(ctx, {{ .Entity | lower }})
+}
+
+func (s *{{ $data.Entity }}ServiceImpl) Get{{ $data.Entity }}(ctx context.Context, id int) (*{{ $data.Entity }}, error) {
+    return s.repo.Get{{ $data.Entity }}(ctx, id)
+}
+
+func (s *{{ $data.Entity }}ServiceImpl) Get{{ $data.Entity }}ByPublicID(ctx context.Context, publicID string) (*{{ $data.Entity }}, error) {
+    return s.repo.Get{{ $data.Entity }}ByPublicID(ctx, publicID)
+}
+
+func (s *{{ $data.Entity }}ServiceImpl) Update{{ $data.Entity }}(ctx context.Context, {{ .Entity | lower }} *{{ $data.Entity }}) error {
+    return s.repo.Update{{ $data.Entity }}(ctx, {{ .Entity | lower }})
+}
+
+func (s *{{ $data.Entity }}ServiceImpl) Delete{{ $data.Entity }}(ctx context.Context, {{ .Entity | lower }} *{{ $data.Entity }}) error {
+    return s.repo.Delete{{ $data.Entity }}(ctx, {{ .Entity | lower }})
+}

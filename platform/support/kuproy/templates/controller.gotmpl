@@ -1,0 +1,155 @@
+{{- $data := . -}}
+// Package {{ $data.PackageName }} provides the {{ $data.Entity }} controllers
+package {{ $data.PackageName }}
+
+import (
+	"{{ $data.ModulePath }}/internal/app/http/controllers"
+	"{{ $data.ModulePath }}/internal/modules/{{ $data.PackageName }}"
+	"{{ $data.ModulePath }}/platform/support/hash"
+
+	"github.com/gofiber/fiber/v2"
+)
+
+type {{ $data.Entity }}Controller struct {
+	*controllers.Controller
+
+	{{ $data.Entity | lower }}Service {{ $data.PackageName }}.{{ $data.Entity }}Service
+}
+
+// New{{ $data.Entity }}Controller creates a new {{ $data.Entity }}controllers
+// @wired:provide
+func New{{ $data.Entity }}Controller(
+	controller *controllers.Controller,
+	{{ $data.Entity | lower }}Service {{ $data.PackageName }}.{{ $data.Entity }}Service,
+) *{{ $data.Entity }}Controller {
+	return &{{ $data.Entity }}Controller{
+		Controller: controller,
+		{{ $data.Entity | lower }}Service: {{ $data.Entity | lower }}Service,
+	}
+}
+
+// List godoc
+// @Summary      List {{ $data.Entity | lower }}
+// @Description  List {{ $data.Entity | lower }}
+// @Tags         {{ $data.Entity }}
+// @Produce      json
+// @Param        page    query  int    false "Page"
+// @Param        limit   query  int    false "Limit"
+// @Success      200 {object} {{ $data.Entity }}ListResponse
+// @Router       /api/v1/{{ $data.Entity | lower }} [get]
+func (c *{{ $data.Entity }}Controller) List(ctx *fiber.Ctx) error {
+	page := ctx.QueryInt("page", 1)
+	limit := ctx.QueryInt("limit", 10)
+
+    {{ $data.Entity | lower }}List, err := c.{{ $data.Entity | lower }}Service.List{{ $data.Entity }}(ctx.Context(), page, limit)
+	if err != nil {
+		return err
+	}
+
+    return ctx.JSON({{ $data.Entity }}ListResponse({{ $data.Entity | lower }}List))
+}
+
+// Get godoc
+// @Summary      Get {{ $data.Entity | lower }}
+// @Description  Get {{ $data.Entity | lower }}
+// @Tags         {{ $data.Entity }}
+// @Produce      json
+// @Param        id  path  string true "ID"
+// @Success      200 {object} {{ $data.Entity }}Response
+// @Router       /api/v1/{{ $data.Entity | lower }}/{id} [get]
+func (c *{{ $data.Entity }}Controller) Get(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	{{ $data.Entity | lower }}, err := c.{{ $data.Entity | lower }}Service.Get{{ $data.Entity }}ByPublicID(ctx.Context(), id)
+	if err != nil {
+		return err
+	}
+
+    return ctx.JSON({{ $data.Entity }}Response({{ $data.Entity | lower }}))
+}
+
+// Store godoc
+// @Summary      Store {{ $data.Entity | lower }}
+// @Description  Store {{ $data.Entity | lower }}
+// @Tags         {{ $data.Entity }}
+// @Accept       json
+// @Produce      json
+// @Param        {{ $data.Entity | lower }}  body  {{ $data.Entity }}StoreRequest true "Body"
+// @Success      200 {object} {{ $data.Entity }}Response
+// @Router       /api/v1/{{ $data.Entity | lower }} [post]
+func (c *{{ $data.Entity }}Controller) Store(ctx *fiber.Ctx) error {
+	var payload {{ $data.Entity }}StoreRequest
+	if err := ctx.BodyParser(&payload); err != nil {
+		return err
+	}
+
+    {{ $data.Entity | lower }} := {{ $data.PackageName }}.{{ $data.Entity }}{
+        PublicID: hash.NanoID(),
+        {{- range $data.Fields }}
+        {{ .Name | camel_case }}: payload.{{ .Name | camel_case }},
+        {{- end }}
+    }
+
+	if err := c.{{ $data.Entity | lower }}Service.Create{{ $data.Entity }}(ctx.Context(), &{{ $data.Entity | lower }}); err != nil {
+		return err
+	}
+
+	return ctx.JSON({{ $data.Entity }}Response(&{{ $data.Entity | lower }}))
+}
+
+// Update godoc
+// @Summary      Update {{ $data.Entity | lower }}
+// @Description  Update {{ $data.Entity | lower }}
+// @Tags         {{ $data.Entity }}
+// @Accept       json
+// @Produce      json
+// @Param        id  path  string true "ID"
+// @Param        {{ $data.Entity | lower }}  body  {{ $data.Entity }}UpdateRequest true "Body"
+// @Success      200 {object} {{ $data.Entity }}Response
+// @Router       /api/v1/{{ $data.Entity | lower }}/{id} [put]
+func (c *{{ $data.Entity }}Controller) Update(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+    var payload {{ $data.Entity }}UpdateRequest
+    if err := ctx.BodyParser(&payload); err != nil {
+        return err
+    }
+
+	{{ $data.Entity | lower }}, err := c.{{ $data.Entity | lower }}Service.Get{{ $data.Entity }}ByPublicID(ctx.Context(), id)
+	if err != nil {
+		return err
+	}
+    {{ range $data.Fields }}
+    {{ $data.Entity | lower }}.{{ .Name | camel_case }} = payload.{{ .Name | camel_case }}
+    {{- end }}
+
+	if err := ctx.BodyParser({{ $data.Entity | lower }}); err != nil {
+		return err
+	}
+
+	if err := c.{{ $data.Entity | lower }}Service.Update{{ $data.Entity }}(ctx.Context(), {{ $data.Entity | lower }}); err != nil {
+		return err
+	}
+
+    return ctx.JSON({{ $data.Entity }}Response({{ $data.Entity | lower }}))
+}
+
+// Destroy godoc
+// @Summary      Destroy {{ $data.Entity | lower }}
+// @Description  Destroy {{ $data.Entity | lower }}
+// @Tags         {{ $data.Entity }}
+// @Produce      json
+// @Param        id  path  string true "ID"
+// @Success      200 {object} {{ $data.Entity }}Response
+// @Router       /api/v1/{{ $data.Entity | lower }}/{id} [delete]
+func (c *{{ $data.Entity }}Controller) Destroy(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	{{ $data.Entity | lower }}, err := c.{{ $data.Entity | lower }}Service.Get{{ $data.Entity }}ByPublicID(ctx.Context(), id)
+	if err != nil {
+		return err
+	}
+
+	if err := c.{{ $data.Entity | lower }}Service.Delete{{ $data.Entity }}(ctx.Context(), {{ $data.Entity | lower }}); err != nil {
+		return err
+	}
+
+    return ctx.JSON({{ $data.Entity }}Response({{ $data.Entity | lower }}))
+}

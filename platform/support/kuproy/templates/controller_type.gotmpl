@@ -1,0 +1,22 @@
+{{- $data := . -}}
+package {{ $data.PackageName }}
+
+import (
+	"{{ $data.ModulePath }}/internal/modules/{{ $data.PackageName }}"
+)
+
+type {{ $data.Entity }}Response *{{ $data.PackageName }}.{{ $data.Entity }} // @name {{ $data.Entity }}Controller.{{ $data.Entity }}Response
+
+type {{ $data.Entity }}ListResponse *{{ $data.PackageName }}.Pagination[*{{ $data.PackageName }}.{{ $data.Entity }}] // @name {{ $data.Entity }}Controller.{{ $data.Entity }}ListResponse
+
+type {{ $data.Entity }}StoreRequest struct {
+    {{- range $data.Fields }}
+    {{ .Name | camel_case }} {{ .Type }} `json:"{{ .Name | json }}"`
+    {{- end }}
+} // @name {{ $data.Entity }}Controller.{{ $data.Entity }}StoreRequest
+
+type {{ $data.Entity }}UpdateRequest struct {
+    {{- range $data.Fields }}
+    {{ .Name | camel_case }} {{ .Type }} `json:"{{ .Name | json }}"`
+    {{- end }}
+} // @name {{ $data.Entity }}Controller.{{ $data.Entity }}UpdateRequest

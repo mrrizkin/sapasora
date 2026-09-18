@@ -1,0 +1,461 @@
+// Package device provides the Device controllers
+package device
+
+import (
+	"sapasora/internal/app/http/controllers"
+	"sapasora/internal/app/policies"
+	"sapasora/internal/modules/account"
+	"sapasora/internal/modules/device"
+	"sapasora/internal/modules/permission"
+	"sapasora/platform/satpam"
+	"sapasora/platform/support/hash"
+	"sapasora/platform/ui/inertia"
+	"fmt"
+
+	"github.com/gofiber/fiber/v2"
+)
+
+type DeviceController struct {
+	*controllers.Controller
+
+	accountService account.AccountService
+	deviceService  device.DeviceService
+}
+
+// NewDeviceController creates a new Devicecontrollers
+// @wired:provide
+func NewDeviceController(
+	controller *controllers.Controller,
+	accountService account.AccountService,
+	deviceService device.DeviceService,
+) *DeviceController {
+	return &DeviceController{
+		Controller:     controller,
+		accountService: accountService,
+		deviceService:  deviceService,
+	}
+}
+
+// Index show the index page
+func (c *DeviceController) Index(ctx *fiber.Ctx) error {
+	gate := satpam.New(&policies.CanListDevice{})
+	subject, err := c.GetSubject(ctx, "account")
+	if err != nil {
+		return err
+	}
+	gate.AuthorizeAllPermissions(subject)
+
+	page := ctx.QueryInt("page", 1)
+	limit := ctx.QueryInt("limit", 10)
+	search := ctx.Query("search")
+
+	deviceList, err := c.deviceService.ListDevice(ctx.Context(), search, page, limit)
+	if err != nil {
+		return err
+	}
+
+	return c.Inertia(ctx, "device/index", fiber.Map{
+		"devices": DeviceListResponse(deviceList),
+		"filters": fiber.Map{
+			"search": search,
+		},
+		"pagination": fiber.Map{
+			"pageIndex": page - 1,
+			"pageSize":  limit,
+		},
+	})
+}
+
+// Create show the form to create a new device
+func (c *DeviceController) Create(ctx *fiber.Ctx) error {
+	gate := satpam.New(&policies.CanStoreDevice{})
+	subject, err := c.GetSubject(ctx, "account")
+	if err != nil {
+		return err
+	}
+	gate.AuthorizeAllPermissions(subject)
+	return c.Inertia(ctx, "device/create")
+}
+
+// Show display the device detail
+func (c *DeviceController) Show(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	device, err := c.deviceService.GetDeviceByPublicID(ctx.Context(), id)
+	if err != nil {
+		return err
+	}
+
+	gate := satpam.New(&policies.CanGetDevice{}).AddResource("device", device)
+	subject, err := c.GetSubject(ctx, "account")
+	if err != nil {
+		return err
+	}
+	gate.AuthorizeAllPermissions(subject)
+
+	if device.User == nil {
+		user, err := c.accountService.GetAccount(ctx.Context(), int(device.UserID))
+		if err != nil {
+			return err
+		}
+		device.User = user
+	}
+
+	return c.Inertia(ctx, "device/show", fiber.Map{
+		"device": device,
+	})
+}
+
+// Edit show the form to edit the device
+func (c *DeviceController) Edit(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	device, err := c.deviceService.GetDeviceByPublicID(ctx.Context(), id)
+	if err != nil {
+		return err
+	}
+
+	gate := satpam.New(&policies.CanUpdateDevice{}).AddResource("device", device)
+	subject, err := c.GetSubject(ctx, "account")
+	if err != nil {
+		return err
+	}
+	gate.AuthorizeAllPermissions(subject)
+
+	return c.Inertia(ctx, "device/edit", fiber.Map{
+		"device": device,
+	})
+}
+
+// List godoc
+// @Summary      List device
+// @Description  List device
+// @Tags         Device
+// @Produce      json
+// @Param        page    query  int    false "Page"
+// @Param        limit   query  int    false "Limit"
+// @Param        search  query  string false "Search"
+// @Success      200 {object} DeviceListResponse
+// @Router       /api/v1/device [get]
+func (c *DeviceController) List(ctx *fiber.Ctx) error {
+	gate := satpam.New(&policies.CanListDevice{})
+	subject, err := c.GetSubject(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrForbidden
+	}
+
+	gate.AuthorizeAllPermissions(subject)
+
+	page := ctx.QueryInt("page", 1)
+	limit := ctx.QueryInt("limit", 10)
+	search := ctx.Query("search")
+
+	deviceList, err := c.deviceService.ListDevice(ctx.Context(), search, page, limit)
+	if err != nil {
+		return err
+	}
+
+	return ctx.JSON(DeviceListResponse(deviceList))
+}
+
+// Get godoc
+// @Summary      Get device
+// @Description  Get device
+// @Tags         Device
+// @Produce      json
+// @Param        id  path  string true "ID"
+// @Success      200 {object} DeviceResponse
+// @Router       /api/v1/device/{id} [get]
+func (c *DeviceController) Get(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	device, err := c.deviceService.GetDeviceByPublicID(ctx.Context(), id)
+	if err != nil {
+		return err
+	}
+
+	gate := satpam.New(&policies.CanGetDevice{}).AddResource("device", device)
+	subject, err := c.GetSubject(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrUnauthorized
+	}
+
+	gate.AuthorizeAllPermissions(subject)
+
+	return ctx.JSON(DeviceResponse(device))
+}
+
+// GetDeviceByToken godoc
+// @Summary      Get device by token
+// @Description  Get device by token
+// @Tags         Device
+// @Accept       json
+// @Produce      json
+// @Param        token  path  string true "Token"
+// @Success      200 {object} DeviceResponse
+// @Router       /api/v1/device/{token}/token [get]
+func (c *DeviceController) GetDeviceByToken(ctx *fiber.Ctx) error {
+	token := ctx.Params("token")
+	device, err := c.deviceService.GetDeviceByToken(ctx.Context(), token)
+	if err != nil {
+		return err
+	}
+
+	gate := satpam.New(&policies.CanGetDevice{}).AddResource("device", device)
+	subject, err := c.GetSubject(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrUnauthorized
+	}
+
+	gate.AuthorizeAllPermissions(subject)
+
+	return ctx.JSON(DeviceResponse(device))
+}
+
+// Store godoc
+// @Summary      Store device
+// @Description  Store device
+// @Tags         Device
+// @Accept       json
+// @Produce      json
+// @Param        device  body  DeviceStoreRequest true "Body"
+// @Success      200 {object} DeviceResponse
+// @Router       /api/v1/device [post]
+func (c *DeviceController) Store(ctx *fiber.Ctx) error {
+	gate := satpam.New(&policies.CanStoreDevice{})
+	subject, err := c.GetSubject(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
+	gate.AuthorizeAllPermissions(subject)
+
+	var payload DeviceStoreRequest
+	if err := ctx.BodyParser(&payload); err != nil {
+		return err
+	}
+
+	if payload.UserID == "" {
+		if account, ok := ctx.Locals("account").(*account.Account); ok {
+			payload.UserID = account.PublicID
+		}
+	}
+
+	user, err := c.accountService.GetAccountByPublicID(ctx.Context(), payload.UserID)
+	if err != nil {
+		return err
+	}
+
+	if payload.Permissions == nil {
+		payload.Permissions = &permission.Permission{
+			CanCheckUserGateway:        true,
+			CanConnectGateway:          true,
+			CanDisconnectGateway:       true,
+			CanGetAvatarGateway:        true,
+			CanGetContactsGateway:      true,
+			CanGetQRGateway:            true,
+			CanGetStatusGateway:        true,
+			CanGetUserGateway:          true,
+			CanLogoutGateway:           true,
+			CanSendAudioGateway:        true,
+			CanSendButtonGateway:       true,
+			CanSendChatPresenceGateway: true,
+			CanSendContactGateway:      true,
+			CanSendDocumentGateway:     true,
+			CanSendImageGateway:        true,
+			CanSendListGateway:         true,
+			CanSendLocationGateway:     true,
+			CanSendStickerGateway:      true,
+			CanSendTextGateway:         true,
+			CanSendVideoGateway:        true,
+		}
+	}
+
+	device := device.Device{
+		PublicID:    hash.NanoID(),
+		Name:        payload.Name,
+		Type:        payload.Type,
+		Status:      device.DeviceStatusInactive,
+		UserID:      user.ID,
+		Events:      payload.Events,
+		ExpiredAt:   payload.ExpiredAt,
+		Webhook:     payload.Webhook,
+		Permissions: payload.Permissions,
+	}
+
+	if err := c.deviceService.CreateDevice(ctx.Context(), &device); err != nil {
+		return err
+	}
+
+	if inertia.IsInertiaRequest(ctx) {
+		return c.InertiaRedirect(ctx, fmt.Sprintf("/devices/%s/show", device.PublicID))
+	}
+
+	return ctx.JSON(DeviceResponse(&device))
+}
+
+// Update godoc
+// @Summary      Update device
+// @Description  Update device
+// @Tags         Device
+// @Accept       json
+// @Produce      json
+// @Param        id  path  string true "ID"
+// @Param        device  body  DeviceUpdateRequest true "Body"
+// @Success      200 {object} DeviceResponse
+// @Router       /api/v1/device/{id} [put]
+func (c *DeviceController) Update(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	var payload DeviceUpdateRequest
+	if err := ctx.BodyParser(&payload); err != nil {
+		return err
+	}
+
+	device, err := c.deviceService.GetDeviceByPublicID(ctx.Context(), id)
+	if err != nil {
+		return err
+	}
+
+	gate := satpam.New(&policies.CanUpdateDevice{}).AddResource("device", device)
+	subject, err := c.GetSubject(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrUnauthorized
+	}
+
+	gate.AuthorizeAllPermissions(subject)
+
+	user, err := c.accountService.GetAccountByPublicID(ctx.Context(), payload.UserID)
+	if err != nil {
+		return err
+	}
+
+	if payload.Permissions == nil {
+		payload.Permissions = &permission.Permission{
+			CanCheckUserGateway:        true,
+			CanConnectGateway:          true,
+			CanDisconnectGateway:       true,
+			CanGetAvatarGateway:        true,
+			CanGetContactsGateway:      true,
+			CanGetQRGateway:            true,
+			CanGetStatusGateway:        true,
+			CanGetUserGateway:          true,
+			CanLogoutGateway:           true,
+			CanSendAudioGateway:        true,
+			CanSendButtonGateway:       true,
+			CanSendChatPresenceGateway: true,
+			CanSendContactGateway:      true,
+			CanSendDocumentGateway:     true,
+			CanSendImageGateway:        true,
+			CanSendListGateway:         true,
+			CanSendLocationGateway:     true,
+			CanSendStickerGateway:      true,
+			CanSendTextGateway:         true,
+			CanSendVideoGateway:        true,
+		}
+	}
+
+	device.Name = payload.Name
+	device.Type = payload.Type
+	device.Webhook = payload.Webhook
+	device.Events = payload.Events
+	device.ExpiredAt = payload.ExpiredAt
+	device.UserID = user.ID
+	device.Permissions = payload.Permissions
+
+	if err := c.deviceService.UpdateDevice(ctx.Context(), device); err != nil {
+		return err
+	}
+
+	return ctx.JSON(DeviceResponse(device))
+}
+
+// UpdateStatus godoc
+// @Summary      Update device status
+// @Description  Update device status
+// @Tags         Device
+// @Accept       json
+// @Produce      json
+// @Param        id  path  string true "ID"
+// @Param        status  body  DeviceStatusRequest true "Body"
+// @Success      200 {object} DeviceResponse
+// @Router       /api/v1/device/{id}/status [put]
+func (c *DeviceController) UpdateStatus(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	var payload DeviceStatusRequest
+	if err := ctx.BodyParser(&payload); err != nil {
+		return err
+	}
+
+	device, err := c.deviceService.GetDeviceByPublicID(ctx.Context(), id)
+	if err != nil {
+		return err
+	}
+
+	gate := satpam.New(&policies.CanUpdateDevice{}).AddResource("device", device)
+	subject, err := c.GetSubject(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrUnauthorized
+	}
+
+	gate.AuthorizeAllPermissions(subject)
+
+	if payload.Status == device.Status {
+		return ctx.JSON(DeviceResponse(device))
+	}
+
+	device.Status = payload.Status
+
+	if err := c.deviceService.UpdateDevice(ctx.Context(), device); err != nil {
+		return err
+	}
+
+	if inertia.IsInertiaRequest(ctx) {
+		return c.InertiaRedirect(ctx, "device/show")
+	}
+
+	return ctx.JSON(DeviceResponse(device))
+}
+
+// Destroy godoc
+// @Summary      Destroy device
+// @Description  Destroy device
+// @Tags         Device
+// @Produce      json
+// @Param        id  path  string true "ID"
+// @Success      200 {object} DeviceResponse
+// @Router       /api/v1/device/{id} [delete]
+func (c *DeviceController) Destroy(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	device, err := c.deviceService.GetDeviceByPublicID(ctx.Context(), id)
+	if err != nil {
+		return err
+	}
+
+	gate := satpam.New(&policies.CanDeleteDevice{}).AddResource("device", device)
+	subject, err := c.GetSubject(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrUnauthorized
+	}
+
+	gate.AuthorizeAllPermissions(subject)
+
+	if err := c.deviceService.DeleteDevice(ctx.Context(), device); err != nil {
+		return err
+	}
+
+	return ctx.JSON(DeviceResponse(device))
+}

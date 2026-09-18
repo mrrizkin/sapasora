@@ -1,0 +1,12 @@
+{{- $data := . -}}
+// Package {{ $data.PackageName }} provides the policies for the application
+package {{ $data.PackageName }}
+
+import "{{ $data.ModulePath }}/platform/satpam"
+
+type {{ $data.StructName }} struct {}
+func (p *{{ $data.StructName }}) Name() string { return "{{ $data.Name }}" }
+func (p *{{ $data.StructName }}) Authorize(sub *satpam.Attribute, res map[string]*satpam.Attribute) {
+    // example
+    // satpam.AssertAuthorized(condition, "assertion failed message")
+}

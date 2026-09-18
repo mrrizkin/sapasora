@@ -1,0 +1,50 @@
+{{- define "struct" -}}
+{{- $data := . -}}
+// Package {{ $data.PackageName }} provides the {{ $data.Entity | title }} modules
+package {{ $data.PackageName }}
+
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
+
+type {{ $data.Entity }} struct {
+	ID        uint `json:"-" gorm:"primarykey"`
+    PublicID  string `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-"`
+
+    {{- range $field := $data.Fields }}
+    {{ template "field" $field }}
+    {{- end }}
+} // @name {{ $data.PackageName }}.{{ $data.Entity }}
+
+type Pagination[T any] struct {
+	Page  int `json:"page"`
+	Limit int `json:"limit"`
+	Total int64 `json:"total"`
+	Data  []T `json:"data"`
+}
+
+func (m *{{ $data.Entity }}) TableName() string {
+    return "{{ $data.TableName }}"
+}
+
+func (m *{{ $data.Entity }}) Valid() error {
+    return nil
+}
+{{- end -}}
+
+{{- define "field" -}}
+    {{ .Name | title }} {{ .Type }}
+    {{- if .Attributes }} `
+        {{- range $tagIndex, $tag := .Attributes -}}
+            {{- if ne $tagIndex 0 }} {{ end -}}
+            {{- $tag -}}
+        {{- end -}}`
+    {{- end }}
+{{- end -}}
+
+{{- template "struct" . -}}

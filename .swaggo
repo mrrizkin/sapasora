@@ -1,0 +1,15 @@
+replace sapasora/internal/modules/device.DeviceStatus string
+replace sapasora/internal/modules/device.DeviceType string
+
+replace sapasora/internal/modules/devicetoken.DeviceTokenStatus string
+
+replace codeberg.org/mrrizkin/nihil.NilBool boolean
+replace codeberg.org/mrrizkin/nihil.NilByte byte
+replace codeberg.org/mrrizkin/nihil.NilString string
+replace codeberg.org/mrrizkin/nihil.NilFloat64 float64
+replace codeberg.org/mrrizkin/nihil.NilInt16 integer
+replace codeberg.org/mrrizkin/nihil.NilInt32 integer
+replace codeberg.org/mrrizkin/nihil.NilInt64 integer
+replace codeberg.org/mrrizkin/nihil.NilTime string
+
+replace gorm.io/gorm.DeletedAt string

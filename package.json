@@ -1,0 +1,85 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm build && concurrently -n \"VITE,GO\" -c \"cyan.bold,green.bold\" \"pnpm dev:assets\" \"pnpm dev:app\"",
+    "dev:ssr": "pnpm build:ssr && concurrently -n \"VITE,GO,SSR\" -c \"cyan.bold,green.bold,magenta.bold\" \"pnpm dev:assets\" \"pnpm dev:app\" \"node ./build/ssr/ssr.js\"",
+    "dev:app": "air",
+    "dev:assets": "vite",
+    "build": "pnpm build:assets && pnpm build:app",
+    "build:ssr": "pnpm build:assets && pnpm build:assets:ssr && pnpm build:app",
+    "build:app": "go tool templ generate && go build -v -trimpath -o ./build/app ./cmd/main",
+    "build:assets:ssr": "vite build --ssr",
+    "build:assets": "vite build",
+    "build:toolbox": "go build -v -o ./toolbox ./cmd/toolbox",
+    "format": "prettier --write resources/",
+    "format:check": "prettier --check resources/",
+    "lint": "oxlint . --fix -D correctness --ignore-path .gitignore",
+    "test": "pnpm test:unit && pnpm test:e2e && pnpm test:go",
+    "test:e2e": "playwright test",
+    "test:go": "go test -v ./...",
+    "test:unit": "vitest",
+    "test:watch": "vitest --watch",
+    "toolbox": "go run ./cmd/toolbox",
+    "type-check": "vue-tsc --build"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@inertiajs/vue3": "^2.2.15",
+    "@nuxt/ui": "^4.2.1",
+    "@tanstack/table-core": "^8.21.3",
+    "@tanstack/vue-query": "^5.92.1",
+    "@unhead/vue": "^2.0.19",
+    "@vue/server-renderer": "^3.5.22",
+    "axios": "^1.13.2",
+    "laravel-vite-plugin": "^2.0.1",
+    "scule": "^1.3.0",
+    "vue": "^3.5.22",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@tailwindcss/vite": "^4.1.13",
+    "@trivago/prettier-plugin-sort-imports": "^5.2.2",
+    "@tsconfig/node22": "^22.0.2",
+    "@types/jsdom": "^27.0.0",
+    "@types/node": "^22.18.11",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/test-utils": "^2.4.6",
+    "@vue/tsconfig": "^0.8.1",
+    "concurrently": "^9.2.1",
+    "jsdom": "^27.0.1",
+    "oxlint": "~1.23.0",
+    "prettier": "3.6.2",
+    "prettier-plugin-tailwindcss": "^0.6.14",
+    "tailwindcss": "^4.1.13",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "~5.9.0",
+    "vite": "^7.3.0",
+    "vitest": "^3.2.4",
+    "vue-component-type-helpers": "^3.2.1",
+    "vue-tsc": "^3.1.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "vue-demi"
+    ]
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "4.9.5",
+    "@rollup/rollup-darwin-x64": "4.9.5",
+    "@rollup/rollup-linux-x64-gnu": "4.9.5",
+    "@rollup/rollup-win32-x64-msvc": "4.9.5",
+    "@tailwindcss/oxide-darwin-arm64": "^4.1.13",
+    "@tailwindcss/oxide-darwin-x64": "^4.1.13",
+    "@tailwindcss/oxide-linux-x64-gnu": "^4.1.13",
+    "@tailwindcss/oxide-win32-x64-msvc": "^4.1.13",
+    "lightningcss-darwin-arm64": "^1.30.1",
+    "lightningcss-darwin-x64": "^1.30.1",
+    "lightningcss-linux-x64-gnu": "^1.30.1",
+    "lightningcss-win32-x64-msvc": "^1.30.1"
+  }
+}

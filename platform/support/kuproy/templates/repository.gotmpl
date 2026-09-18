@@ -1,0 +1,93 @@
+{{- $data := . -}}
+package {{ $data.PackageName }}
+
+import (
+	"context"
+
+	"{{ $data.ModulePath }}/platform/database"
+	"{{ $data.ModulePath }}/platform/support/sql"
+)
+
+type {{ $data.Entity }}RepositoryImpl struct {
+    db *database.Database
+}
+
+
+// New{{ $data.Entity }}Repository creates a new Implementation of {{ $data.Entity }}Repository
+// @wired:provide
+func New{{ $data.Entity }}Repository(db *database.Database) {{ $data.Entity }}Repository {
+    return &{{ $data.Entity }}RepositoryImpl{
+        db: db,
+    }
+}
+
+func (r *{{ $data.Entity }}RepositoryImpl) List{{ $data.Entity }}(
+    ctx context.Context,
+    page, limit int,
+) (*Pagination[*{{ $data.Entity }}], error) {
+
+    wb := sql.NewLogicBuilder()
+
+    qb := r.db.WithContext(ctx).
+        Model(&{{ $data.Entity }}{})
+
+    where, args := wb.GetLogic()
+    if where != "" {
+        qb = qb.Where(where, args...)
+    }
+
+    var count int64
+    total := qb.Count(&count)
+    if total.Error != nil {
+        return nil, total.Error
+    }
+
+    var result []*{{ $data.Entity }}
+    q := qb.Offset((page - 1) * limit).Limit(limit).Find(&result)
+    if q.Error != nil {
+        return nil, q.Error
+    }
+
+    return &Pagination[*{{ $data.Entity }}]{
+        Page:  page,
+        Limit: limit,
+        Total: count,
+        Data:  result,
+    }, q.Error
+}
+
+func (r *{{ $data.Entity }}RepositoryImpl) Create{{ $data.Entity }}(ctx context.Context, {{ .Entity | lower }} *{{ $data.Entity }}) error {
+    if err := {{ .Entity | lower }}.Valid(); err != nil {
+        return err
+    }
+    return r.db.WithContext(ctx).Create({{ .Entity | lower }}).Error
+}
+
+func (r *{{ $data.Entity }}RepositoryImpl) Get{{ $data.Entity }}(ctx context.Context, id int) (*{{ $data.Entity }}, error) {
+    var result {{ $data.Entity }}
+    q := r.db.WithContext(ctx).First(&result, id)
+    return &result, q.Error
+}
+
+func (r *{{ $data.Entity }}RepositoryImpl) Get{{ $data.Entity }}ByPublicID(
+    ctx context.Context,
+    publicID string,
+) (*{{ $data.Entity }}, error) {
+    var result {{ $data.Entity }}
+    q := r.db.WithContext(ctx).Where("public_id = ?", publicID).First(&result)
+    return &result, q.Error
+}
+
+func (r *{{ $data.Entity }}RepositoryImpl) Update{{ $data.Entity }}(ctx context.Context, {{ .Entity | lower }} *{{ $data.Entity }}) error {
+    if err := {{ .Entity | lower }}.Valid(); err != nil {
+        return err
+    }
+    return r.db.WithContext(ctx).Save({{ .Entity | lower }}).Error
+}
+
+func (r *{{ $data.Entity }}RepositoryImpl) Delete{{ $data.Entity }}(ctx context.Context, {{ .Entity | lower }} *{{ $data.Entity }}) error {
+    if err := {{ .Entity | lower }}.Valid(); err != nil {
+        return err
+    }
+    return r.db.WithContext(ctx).Delete({{ .Entity | lower }}).Error
+}

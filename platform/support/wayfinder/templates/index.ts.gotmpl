@@ -1,0 +1,10 @@
+{{- $data := . }}
+{{- range $data.Actions -}}
+import {{ . }} from './{{ . }}';
+{{ end }}
+export const {{ $data.Name }} = {
+{{ range $data.Actions }}  {{ . }}: Object.assign({{ . }}, {{ . }}),
+{{ end -}}
+};
+
+export default {{ $data.Name }};

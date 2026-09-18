@@ -1,0 +1,227 @@
+package telegram
+
+import (
+	"time"
+)
+
+type CheckUserRequest struct {
+	Phone    []string `json:"phone"`
+	Username []string `json:"username"`
+} // @name telegram.CheckUserRequest
+
+type CheckUser struct {
+	Query        string `json:"query"`
+	IsInTelegram bool   `json:"is_in_telegram"`
+	Username     string `json:"username"`
+	VerifiedName string `json:"verified_name"`
+} // @name telegram.CheckUser
+
+type CheckUserResponse struct {
+	Users []CheckUser `json:"users"`
+} // @name telegram.CheckUserResponse
+
+type ConnectRequest struct {
+	Subscribe []string `json:"subscribe"`
+	Immediate bool     `json:"immediate"`
+} // @name telegram.ConnectRequest
+
+type GetAvatarRequest struct {
+	Phone    string `json:"phone"`
+	Username string `json:"username"`
+	Preview  bool   `json:"preview"`
+} // @name telegram.GetAvatarRequest
+
+type GetAvatarResponse struct {
+	URL        string `json:"url"`
+	ID         string `json:"id"`
+	Type       string `json:"type"`
+	DirectPath string `json:"direct_path"`
+} // @name telegram.GetAvatarResponse
+
+type Contact struct {
+	Found         bool   `json:"found"`
+	Username      string `json:"username"`
+	FullName      string `json:"full_name"`
+	FirstName     string `json:"first_name"`
+	PushName      string `json:"push_name"`
+	BusinessName  string `json:"business_name"`
+	RedactedPhone string `json:"redacted_phone"`
+} // @name telegram.Contact
+
+type GetContactsResponse struct {
+	Contacts []Contact `json:"contacts"`
+} // @name telegram.GetContactsResponse
+
+type GetStatusResponse struct {
+	Connected bool `json:"connected"`
+	LoggedIn  bool `json:"logged_in"`
+} // @name telegram.GetStatusResponse
+
+type GetUserRequest struct {
+	Phone    []string `json:"phone"`
+	Username []string `json:"username"`
+} // @name telegram.GetUserRequest
+
+type VerifiedName struct {
+	Serial         *uint64   `json:"serial,omitempty"`
+	Issuer         *string   `json:"issuer,omitempty"`
+	VerifiedName   *string   `json:"name,omitempty"`
+	LocalizedNames []*string `json:"localize_names,omitempty"`
+	IssueTime      *uint64   `json:"issue_time,omitempty"`
+} // @name telegram.VerifiedName
+
+type User struct {
+	Username     string        `json:"username"`
+	VerifiedName *VerifiedName `json:"verified_name"`
+	Status       string        `json:"status"`
+	PictureID    string        `json:"picture_id"`
+	Devices      []string      `json:"devices"`
+} // @name telegram.User
+
+type GetUserResponse struct {
+	Users []User `json:"users"`
+} // @name telegram.GetUserResponse
+
+type ContextInfo struct {
+	StanzaID    *string `json:"stanza_id,omitempty"`
+	Participant *string `json:"participant,omitempty"`
+} // @name telegram.ContextInfo
+
+type SendAudioRequest struct {
+	Phone    string `json:"phone"`
+	Username string `json:"username"`
+	Audio    string `json:"audio"`
+	Caption  string `json:"caption"`
+	ID       string `json:"id"`
+
+	ContextInfo ContextInfo `json:"context_info"`
+} // @name telegram.SendAudioRequest
+
+type Button struct {
+	ButtonID   string `json:"button_id"`
+	ButtonText string `json:"button_text"`
+} // @name telegram.Button
+
+type SendButtonTextRequest struct {
+	Phone    string   `json:"phone"`
+	Username string   `json:"username"`
+	Title    string   `json:"title"`
+	Buttons  []Button `json:"buttons"`
+	ID       string   `json:"id"`
+} // @name telegram.SendButtonTextRequest
+
+type ChatPresenceRequest struct {
+	Phone    string `json:"phone"`
+	Username string `json:"username"`
+	State    string `json:"state"`
+	Media    string `json:"media"`
+} // @name telegram.ChatPresenceRequest
+
+type SendContactRequest struct {
+	Phone       string      `json:"phone"`
+	Username    string      `json:"username"`
+	ID          string      `json:"id"`
+	Name        string      `json:"name"`
+	Vcard       string      `json:"vcard"`
+	ContextInfo ContextInfo `json:"context_info"`
+} // @name telegram.SendContactRequest
+
+type SendDocumentRequest struct {
+	Phone       string      `json:"phone"`
+	Username    string      `json:"username"`
+	Document    string      `json:"document"`
+	FileName    string      `json:"filename"`
+	ID          string      `json:"id"`
+	ContextInfo ContextInfo `json:"context_info"`
+} // @name telegram.SendDocumentRequest
+
+type SendImageRequest struct {
+	Phone       string      `json:"phone"`
+	Username    string      `json:"username"`
+	Image       string      `json:"image"`
+	Caption     string      `json:"caption"`
+	ID          string      `json:"id"`
+	ContextInfo ContextInfo `json:"context_info"`
+} // @name telegram.SendImageRequest
+
+type Row struct {
+	RowID       string `json:"row_id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+} // @name telegram.Row
+
+type Section struct {
+	Title string `json:"title"`
+	Rows  []Row  `json:"rows"`
+} // @name telegram.Section
+
+type SendListRequest struct {
+	Phone       string    `json:"phone"`
+	Username    string    `json:"username"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	ButtonText  string    `json:"button_text"`
+	FooterText  string    `json:"footer_text"`
+	Sections    []Section `json:"sections"`
+	ID          string    `json:"id"`
+} // @name telegram.SendListRequest
+
+type SendLocationRequest struct {
+	Phone       string      `json:"phone"`
+	Username    string      `json:"username"`
+	ID          string      `json:"id"`
+	Name        string      `json:"name"`
+	Latitude    float64     `json:"latitude"`
+	Longitude   float64     `json:"longitude"`
+	ContextInfo ContextInfo `json:"context_info"`
+} // @name telegram.SendLocationRequest
+
+type SendStickerRequest struct {
+	Phone        string      `json:"phone"`
+	Username     string      `json:"username"`
+	Sticker      string      `json:"sticker"`
+	ID           string      `json:"id"`
+	PngThumbnail []byte      `json:"png_thumbnail"`
+	ContextInfo  ContextInfo `json:"context_info"`
+} // @name telegram.SendStickerRequest
+
+type SendTextRequest struct {
+	Phone       string      `json:"phone"`
+	Username    string      `json:"username"`
+	Body        string      `json:"body"`
+	ID          string      `json:"id"`
+	ContextInfo ContextInfo `json:"context_info"`
+} // @name telegram.SendTextRequest
+
+type SendVideoRequest struct {
+	Phone         string      `json:"phone"`
+	Username      string      `json:"username"`
+	Video         string      `json:"video"`
+	Caption       string      `json:"caption"`
+	ID            string      `json:"id"`
+	JpegThumbnail []byte      `json:"jpeg_thumbnail"`
+	ContextInfo   ContextInfo `json:"context_info"`
+} // @name telegram.SendVideoRequest
+
+type MessageDebugTimings struct {
+	LIDFetch int64 `json:"lid_fetch"`
+	Queue    int64 `json:"queue"`
+
+	Marshal         int64 `json:"marshal"`
+	GetParticipants int64 `json:"get_participants"`
+	GetDevices      int64 `json:"get_devices"`
+	GroupEncrypt    int64 `json:"group_encrypt"`
+	PeerEncrypt     int64 `json:"peer_encrypt"`
+
+	Send  int64 `json:"send"`
+	Resp  int64 `json:"resp"`
+	Retry int64 `json:"retry"`
+} // @name telegram.MessageDebugTimings
+
+type SendResponse struct {
+	Timestamp    time.Time           `json:"timestamp"`
+	ID           string              `json:"id"`
+	ServerID     int                 `json:"server_id"`
+	DebugTimings MessageDebugTimings `json:"debug_timings"`
+	Sender       string              `json:"sender"`
+} // @name telegram.SendResponse

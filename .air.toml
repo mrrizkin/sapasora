@@ -1,0 +1,72 @@
+# Air configuration for hot-reloading Go applications
+# https://github.com/cosmtrek/air
+
+root = "."
+tmp_dir = "./storage/app/bin"
+
+[build]
+  # Binary configuration
+  bin = "./storage/app/bin/devapp"
+  args_bin = ["serve"]
+
+  # Build command with templ generation
+  cmd = "go tool templ generate && go build -v -o ./storage/app/bin/devapp ./cmd/main"
+
+  # Delay before rebuilding (ms)
+  delay = 1000
+
+  # Directories to watch
+  include_dir = [
+    "cmd/main",
+    "internal",
+    "platform",
+    "resources/views"
+  ]
+
+  # File extensions to watch
+  include_ext = ["go", "templ"]
+
+  # Directories to ignore
+  exclude_dir = [
+    "node_modules",
+    "storage",
+    "resources/js",
+    "resources/css",
+    "cmd/toolbox",
+    "public",
+    "tests",
+    ".git",
+    "build"
+  ]
+
+  # Files to ignore
+  exclude_file = []
+
+  # Regex patterns to ignore
+  exclude_regex = ["_test\\.go$"]
+
+  # Build options
+  exclude_unchanged = false
+  follow_symlink = false
+  full_bin = ""
+  # kill_delay = "0s"
+  log = "build-errors.log"
+  send_interrupt = false
+  stop_on_error = true
+
+[color]
+  app = "blue"
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  main_only = false  # Show all logs, not just main
+  time = true        # Show timestamps
+
+[misc]
+  clean_on_exit = true
+
+[screen]
+  clear_on_rebuild = true  # Clear screen on rebuild for cleaner output
