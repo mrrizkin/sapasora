@@ -25,31 +25,31 @@
 
 ## T0.1 Telegram tidak boleh panic
 
-- [ ] Inventarisasi seluruh method Telegram yang masih `panic("unimplemented")`.
-  - [ ] `GetContacts`.
-  - [ ] `GetUser`.
-  - [ ] `Logout`.
-  - [ ] `SendAudio`.
-  - [ ] `SendButton`.
-  - [ ] `SendChatPresence`.
-  - [ ] `SendContact`.
-  - [ ] `SendDocument`.
-  - [ ] `SendImage`.
-  - [ ] `SendList`.
-  - [ ] `SendLocation`.
-  - [ ] `SendSticker`.
-  - [ ] `SendVideo`.
-- [ ] Definisikan behavior untuk capability Telegram yang tidak didukung.
+- [x] Inventarisasi seluruh method Telegram yang masih `panic("unimplemented")`.
+  - [x] `GetContacts`.
+  - [x] `GetUser`.
+  - [x] `Logout`.
+  - [x] `SendAudio`.
+  - [x] `SendButton`.
+  - [x] `SendChatPresence`.
+  - [x] `SendContact`.
+  - [x] `SendDocument`.
+  - [x] `SendImage`.
+  - [x] `SendList`.
+  - [x] `SendLocation`.
+  - [x] `SendSticker`.
+  - [x] `SendVideo`.
+- [x] Definisikan behavior untuk capability Telegram yang tidak didukung.
 - [ ] Implementasikan method Telegram yang masuk scope release.
-- [ ] Untuk method yang belum siap, return `501 Not Implemented` dengan error code stabil.
+- [x] Untuk method yang belum siap, return `501 Not Implemented` dengan error code stabil.
 - [ ] Tambahkan fake Telegram adapter untuk unit test.
 - [ ] Tambahkan integration test dengan TDLib fixture.
 - [ ] Pastikan error dari goroutine TDLib sampai ke supervisor.
 - [ ] Pastikan shutdown TDLib menutup client dan goroutine dengan aman.
-- [ ] Tambahkan test untuk `ActiveUsernames` kosong.
-- [ ] Tambahkan test untuk disconnect ketika client nil.
+- [x] Tambahkan test untuk `ActiveUsernames` kosong.
+- [x] Tambahkan test untuk disconnect ketika client nil.
 - [ ] Tambahkan test untuk state `connecting`, `connected`, `disconnected`, dan `error`.
-- [ ] Hapus seluruh panic provider dari route yang aktif.
+- [x] Hapus seluruh panic provider dari route yang aktif.
 
 ## T0.2 Perbaiki CSRF
 

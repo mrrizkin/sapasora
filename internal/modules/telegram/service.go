@@ -2,10 +2,10 @@ package telegram
 
 import (
 	"context"
-	"sapasora/internal/modules/device"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"sapasora/internal/modules/device"
 	"strconv"
 	"strings"
 	"time"
@@ -52,7 +52,7 @@ func (t *TelegramServiceImpl) CheckUser(
 		users = append(users, CheckUser{
 			Query:        username,
 			IsInTelegram: true,
-			Username:     user.Usernames.ActiveUsernames[0],
+			Username:     activeUsername(user),
 			VerifiedName: fmt.Sprintf("%s %s", user.FirstName, user.LastName),
 		})
 	}
@@ -72,7 +72,7 @@ func (t *TelegramServiceImpl) CheckUser(
 		users = append(users, CheckUser{
 			Query:        phone,
 			IsInTelegram: true,
-			Username:     user.Usernames.ActiveUsernames[0],
+			Username:     activeUsername(user),
 			VerifiedName: fmt.Sprintf("%s %s", user.FirstName, user.LastName),
 		})
 	}
@@ -96,6 +96,10 @@ func (t *TelegramServiceImpl) Disconnect(ctx context.Context, device *device.Dev
 	c, err := t.tele.GetClient(device.PublicID)
 	if err != nil {
 		return err
+	}
+
+	if !c.IsConnected(ctx) {
+		return nil
 	}
 
 	return c.Disconnect(ctx)
@@ -175,7 +179,7 @@ func (t *TelegramServiceImpl) GetContacts(
 	ctx context.Context,
 	device *device.Device,
 ) (*GetContactsResponse, error) {
-	panic("unimplemented")
+	return nil, CapabilityNotImplemented("get_contacts")
 }
 
 // GetStatus implements [TelegramService].
@@ -210,12 +214,12 @@ func (t *TelegramServiceImpl) GetUser(
 	device *device.Device,
 	payload *GetUserRequest,
 ) (*GetUserResponse, error) {
-	panic("unimplemented")
+	return nil, CapabilityNotImplemented("get_user")
 }
 
 // Logout implements [TelegramService].
 func (t *TelegramServiceImpl) Logout(ctx context.Context, device *device.Device) error {
-	panic("unimplemented")
+	return CapabilityNotImplemented("logout")
 }
 
 // SendAudio implements [TelegramService].
@@ -224,7 +228,7 @@ func (t *TelegramServiceImpl) SendAudio(
 	device *device.Device,
 	payload *SendAudioRequest,
 ) (*SendResponse, error) {
-	panic("unimplemented")
+	return nil, CapabilityNotImplemented("send_audio")
 }
 
 // SendButton implements [TelegramService].
@@ -233,7 +237,7 @@ func (t *TelegramServiceImpl) SendButton(
 	device *device.Device,
 	payload *SendButtonTextRequest,
 ) (*SendResponse, error) {
-	panic("unimplemented")
+	return nil, CapabilityNotImplemented("send_button")
 }
 
 // SendChatPresence implements [TelegramService].
@@ -242,7 +246,7 @@ func (t *TelegramServiceImpl) SendChatPresence(
 	device *device.Device,
 	payload *ChatPresenceRequest,
 ) error {
-	panic("unimplemented")
+	return CapabilityNotImplemented("send_chat_presence")
 }
 
 // SendContact implements [TelegramService].
@@ -251,7 +255,7 @@ func (t *TelegramServiceImpl) SendContact(
 	device *device.Device,
 	payload *SendContactRequest,
 ) (*SendResponse, error) {
-	panic("unimplemented")
+	return nil, CapabilityNotImplemented("send_contact")
 }
 
 // SendDocument implements [TelegramService].
@@ -260,7 +264,7 @@ func (t *TelegramServiceImpl) SendDocument(
 	device *device.Device,
 	payload *SendDocumentRequest,
 ) (*SendResponse, error) {
-	panic("unimplemented")
+	return nil, CapabilityNotImplemented("send_document")
 }
 
 // SendImage implements [TelegramService].
@@ -269,7 +273,7 @@ func (t *TelegramServiceImpl) SendImage(
 	device *device.Device,
 	payload *SendImageRequest,
 ) (*SendResponse, error) {
-	panic("unimplemented")
+	return nil, CapabilityNotImplemented("send_image")
 }
 
 // SendList implements [TelegramService].
@@ -278,7 +282,7 @@ func (t *TelegramServiceImpl) SendList(
 	device *device.Device,
 	payload *SendListRequest,
 ) (*SendResponse, error) {
-	panic("unimplemented")
+	return nil, CapabilityNotImplemented("send_list")
 }
 
 // SendLocation implements [TelegramService].
@@ -287,7 +291,7 @@ func (t *TelegramServiceImpl) SendLocation(
 	device *device.Device,
 	payload *SendLocationRequest,
 ) (*SendResponse, error) {
-	panic("unimplemented")
+	return nil, CapabilityNotImplemented("send_location")
 }
 
 // SendSticker implements [TelegramService].
@@ -296,7 +300,7 @@ func (t *TelegramServiceImpl) SendSticker(
 	device *device.Device,
 	payload *SendStickerRequest,
 ) (*SendResponse, error) {
-	panic("unimplemented")
+	return nil, CapabilityNotImplemented("send_sticker")
 }
 
 // SendText implements [TelegramService].
@@ -344,6 +348,13 @@ func (t *TelegramServiceImpl) SendText(
 	}, nil
 }
 
+func activeUsername(user *client.User) string {
+	if user == nil || user.Usernames == nil || len(user.Usernames.ActiveUsernames) == 0 {
+		return ""
+	}
+	return user.Usernames.ActiveUsernames[0]
+}
+
 func (t *TelegramServiceImpl) getSender(ctx context.Context, tele *client.Client) (string, error) {
 	var sender string
 	me, err := tele.GetMe(ctx)
@@ -351,14 +362,11 @@ func (t *TelegramServiceImpl) getSender(ctx context.Context, tele *client.Client
 		return sender, err
 	}
 
-	if me != nil {
-		if me.Usernames != nil {
-			if len(me.Usernames.ActiveUsernames) > 0 {
-				sender = me.Usernames.ActiveUsernames[0]
-			}
-		}
+	if me == nil {
+		return "", nil
 	}
 
+	sender = activeUsername(me)
 	if sender == "" {
 		sender = strings.TrimSpace(me.FirstName + " " + me.LastName)
 	}
@@ -373,5 +381,5 @@ func (t *TelegramServiceImpl) SendVideo(
 	device *device.Device,
 	payload *SendVideoRequest,
 ) (*SendResponse, error) {
-	panic("unimplemented")
+	return nil, CapabilityNotImplemented("send_video")
 }
