@@ -43,7 +43,12 @@ func NewDeviceInfoFromDevice(device *device.Device) *WhatsmeowDeviceInfo {
 	}
 }
 
-const startupConcurrency = 4
+const (
+	startupConcurrency    = 4
+	reconnectMaxAttempts  = 3
+	reconnectInitialDelay = time.Second
+	reconnectMaxDelay     = 5 * time.Second
+)
 
 type Whatsmeow struct {
 	clientStore     *Store[*whatsmeow.Client]
@@ -253,6 +258,8 @@ func (w *Whatsmeow) startClient(
 	subscriptions []string,
 ) {
 	w.log.Info("Starting websocket connection to Whatsmeow", "device", deviceInfo.Name)
+	clientCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	var deviceStore *store.Device
 	var err error
@@ -281,7 +288,7 @@ func (w *Whatsmeow) startClient(
 			w.log.Warn("Invalid stored jid. Creating new device", "device", deviceInfo.Name)
 			deviceStore = w.container.NewDevice()
 		} else {
-			deviceCtx, cancel := providerContext(ctx)
+			deviceCtx, cancel := providerContext(clientCtx)
 			deviceStore, err = w.container.GetDevice(deviceCtx, jid)
 			cancel()
 			if err != nil {
@@ -340,7 +347,7 @@ func (w *Whatsmeow) startClient(
 	if whatsmeowClient.Store.ID == nil {
 		// No ID stored, new login
 
-		qrChan, err := whatsmeowClient.GetQRChannel(context.WithoutCancel(ctx))
+		qrChan, err := whatsmeowClient.GetQRChannel(clientCtx)
 		if err != nil {
 			// This error means that we're already logged in, so ignore it.
 			if !errors.Is(err, whatsmeow.ErrQRStoreContainsID) {
@@ -348,40 +355,57 @@ func (w *Whatsmeow) startClient(
 			}
 		} else {
 			go func() {
-				connectErr := w.connectWithStartupSlot(ctx, whatsmeowClient)
+				connectErr := providerstartup.Retry(
+					clientCtx,
+					reconnectMaxAttempts,
+					reconnectInitialDelay,
+					reconnectMaxDelay,
+					func() error {
+						return w.connectWithStartupSlot(clientCtx, whatsmeowClient)
+					},
+				)
 				if connectErr != nil {
 					w.recordStartupError(deviceInfo.ID, connectErr)
 					w.log.Error("Failed to connect to WhatsMeow", "device", deviceInfo.Name, "error", connectErr)
+					sendKillSignal(killchannel)
 					return
 				}
-				for evt := range qrChan {
-					switch evt.Event {
-					case "code":
-						// Store encoded/embeded base64 QR on database for retrieval
-						image, _ := qrcode.Encode(evt.Code, qrcode.Medium, 256)
-						base64qrcode := "data:image/png;base64," + base64.StdEncoding.EncodeToString(image)
-						err := w.deviceService.SetDeviceQRCodeByPublicID(ctx, deviceInfo.ID, base64qrcode)
-						if err != nil {
-							w.log.Error("Failed to set QR code", "device", deviceInfo.Name, "error", err)
+				for {
+					select {
+					case <-clientCtx.Done():
+						return
+					case evt, ok := <-qrChan:
+						if !ok {
+							return
 						}
-					case "timeout":
-						// Clear QR code from DB on timeout
-						err := w.deviceService.SetDeviceQRCodeByPublicID(ctx, deviceInfo.ID, "")
-						if err != nil {
-							w.log.Error("Failed to set QR code", "device", deviceInfo.Name, "error", err)
-						}
-						w.log.Warn("QR timeout killing channel", "device", deviceInfo.Name)
-						sendKillSignal(killchannel)
-					case "success":
-						w.log.Info("QR pairing ok!", "device", deviceInfo.Name)
+						switch evt.Event {
+						case "code":
+							// Store encoded/embeded base64 QR on database for retrieval
+							image, _ := qrcode.Encode(evt.Code, qrcode.Medium, 256)
+							base64qrcode := "data:image/png;base64," + base64.StdEncoding.EncodeToString(image)
+							err := w.deviceService.SetDeviceQRCodeByPublicID(ctx, deviceInfo.ID, base64qrcode)
+							if err != nil {
+								w.log.Error("Failed to set QR code", "device", deviceInfo.Name, "error", err)
+							}
+						case "timeout":
+							// Clear QR code from DB on timeout
+							err := w.deviceService.SetDeviceQRCodeByPublicID(ctx, deviceInfo.ID, "")
+							if err != nil {
+								w.log.Error("Failed to set QR code", "device", deviceInfo.Name, "error", err)
+							}
+							w.log.Warn("QR timeout killing channel", "device", deviceInfo.Name)
+							sendKillSignal(killchannel)
+						case "success":
+							w.log.Info("QR pairing ok!", "device", deviceInfo.Name)
 
-						// Clear QR code after pairing
-						err := w.deviceService.SetDeviceQRCodeByPublicID(ctx, deviceInfo.ID, "")
-						if err != nil {
-							w.log.Error("Failed to set QR code", "device", deviceInfo.Name, "error", err)
+							// Clear QR code after pairing
+							err := w.deviceService.SetDeviceQRCodeByPublicID(ctx, deviceInfo.ID, "")
+							if err != nil {
+								w.log.Error("Failed to set QR code", "device", deviceInfo.Name, "error", err)
+							}
+						default:
+							w.log.Info("Login event", "device", deviceInfo.Name)
 						}
-					default:
-						w.log.Info("Login event", "device", deviceInfo.Name)
 					}
 				}
 			}()
@@ -389,7 +413,15 @@ func (w *Whatsmeow) startClient(
 	} else {
 		// Already logged in, just connect
 		w.log.Info("Already logged in, just connect", "device", deviceInfo.Name)
-		err = w.connectWithStartupSlot(ctx, whatsmeowClient)
+		err = providerstartup.Retry(
+			clientCtx,
+			reconnectMaxAttempts,
+			reconnectInitialDelay,
+			reconnectMaxDelay,
+			func() error {
+				return w.connectWithStartupSlot(clientCtx, whatsmeowClient)
+			},
+		)
 		if err != nil {
 			w.recordStartupError(deviceInfo.ID, err)
 			w.log.Error("Failed to connect to WhatsMeow", "device", deviceInfo.Name, "error", err)
@@ -397,7 +429,9 @@ func (w *Whatsmeow) startClient(
 		}
 	}
 
-	// Keep connected client live until disconnected/killed
+	// Keep connected client live until disconnected/killed.
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-killchannel:
@@ -415,8 +449,11 @@ func (w *Whatsmeow) startClient(
 				)
 			}
 			return
-		default:
-			time.Sleep(1000 * time.Millisecond)
+		case <-clientCtx.Done():
+			whatsmeowClient.Disconnect()
+			w.cleanupSession(deviceInfo.ID, whatsmeowClient, killchannel)
+			return
+		case <-ticker.C:
 		}
 	}
 }

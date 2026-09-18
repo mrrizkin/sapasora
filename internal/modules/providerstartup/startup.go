@@ -5,6 +5,7 @@ package providerstartup
 import (
 	"context"
 	"sync"
+	"time"
 
 	"sapasora/internal/modules/device"
 )
@@ -15,6 +16,78 @@ type StartFunc func(context.Context, *device.Device) error
 
 // ErrorFunc receives an error from one startup task.
 type ErrorFunc func(*device.Device, error)
+
+// Retry runs one device connection attempt with bounded exponential backoff.
+// Each caller owns its retry loop, so devices do not delay one another. The
+// operation is never started after ctx is canceled, and waiting for the next
+// attempt is interruptible by ctx.
+func Retry(
+	ctx context.Context,
+	maxAttempts int,
+	initialDelay time.Duration,
+	maxDelay time.Duration,
+	operation func() error,
+) error {
+	if maxAttempts < 1 {
+		maxAttempts = 1
+	}
+	if maxDelay < 0 {
+		maxDelay = 0
+	}
+
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		lastErr = operation()
+		if lastErr == nil {
+			return nil
+		}
+		if attempt == maxAttempts-1 {
+			return lastErr
+		}
+
+		delay := retryDelay(initialDelay, maxDelay, attempt)
+		if delay <= 0 {
+			continue
+		}
+
+		timer := time.NewTimer(delay)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			return ctx.Err()
+		}
+	}
+
+	return lastErr
+}
+
+func retryDelay(initialDelay, maxDelay time.Duration, retry int) time.Duration {
+	if initialDelay <= 0 || maxDelay == 0 {
+		return 0
+	}
+	if initialDelay > maxDelay {
+		initialDelay = maxDelay
+	}
+
+	delay := initialDelay
+	for range retry {
+		if delay >= maxDelay-delay {
+			return maxDelay
+		}
+		delay *= 2
+	}
+	return delay
+}
 
 // Run starts tasks with a bounded number of workers. It waits for the startup
 // callbacks to return, but deliberately does not return a task error: one

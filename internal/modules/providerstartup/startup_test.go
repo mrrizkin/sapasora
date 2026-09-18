@@ -10,6 +10,63 @@ import (
 	"sapasora/internal/modules/device"
 )
 
+func TestRetryUsesBoundedAttempts(t *testing.T) {
+	attempts := 0
+	err := Retry(context.Background(), 4, 0, 0, func() error {
+		attempts++
+		return errors.New("provider unavailable")
+	})
+	if err == nil {
+		t.Fatal("Retry() error = nil, want final operation error")
+	}
+	if attempts != 4 {
+		t.Fatalf("attempts = %d, want 4", attempts)
+	}
+}
+
+func TestRetryDelayUsesExponentialCap(t *testing.T) {
+	want := []time.Duration{10 * time.Millisecond, 20 * time.Millisecond, 25 * time.Millisecond}
+	for retry, expected := range want {
+		if got := retryDelay(10*time.Millisecond, 25*time.Millisecond, retry); got != expected {
+			t.Fatalf("retryDelay(%d) = %s, want %s", retry, got, expected)
+		}
+	}
+}
+
+func TestRetryStopsBeforeNextAttemptWhenContextCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	attempts := 0
+
+	err := Retry(ctx, 3, 0, 0, func() error {
+		attempts++
+		return errors.New("should not run")
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Retry() error = %v, want context.Canceled", err)
+	}
+	if attempts != 0 {
+		t.Fatalf("attempts = %d, want 0", attempts)
+	}
+}
+
+func TestRetryInterruptsBackoffOnContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	attempts := 0
+
+	err := Retry(ctx, 3, time.Hour, time.Hour, func() error {
+		attempts++
+		cancel()
+		return errors.New("provider unavailable")
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Retry() error = %v, want context.Canceled", err)
+	}
+	if attempts != 1 {
+		t.Fatalf("attempts = %d, want 1", attempts)
+	}
+}
+
 func TestRunIsolatesOneProviderFailure(t *testing.T) {
 	devices := []*device.Device{{PublicID: "failed"}, {PublicID: "healthy"}}
 	var mu sync.Mutex

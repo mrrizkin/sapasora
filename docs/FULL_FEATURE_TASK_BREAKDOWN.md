@@ -163,7 +163,10 @@
 - [x] Filter credential belum expired.
 - [x] Skip soft-deleted device.
 - [x] Tambahkan startup concurrency limit.
-- [ ] Tambahkan per-device reconnect backoff.
+- [x] Tambahkan bounded, context-aware per-device reconnect backoff untuk percobaan koneksi provider yang gagal.
+
+Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; deteksi dan pemulihan otomatis setelah koneksi yang sudah established terputus masih belum aman/tersedia di lifecycle provider saat ini.
+
 - [x] Jangan block seluruh startup karena satu provider gagal.
 - [x] Simpan last startup error.
 - [x] Tambahkan graceful stop hook untuk semua provider.
