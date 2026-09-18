@@ -1,14 +1,15 @@
 package middleware
 
 import (
+	"encoding/json"
+	"strings"
+
 	"sapasora/internal/modules/account"
 	"sapasora/internal/modules/apikey"
 	"sapasora/internal/modules/device"
 	"sapasora/platform/logger"
 	"sapasora/platform/session"
 	"sapasora/platform/ui/inertia"
-	"encoding/json"
-	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -44,7 +45,13 @@ func (m *AuthenticationMiddleware) Handle(c *fiber.Ctx) error {
 		if strings.HasPrefix(apiKey, "sk-dat-") { // secret key device access token
 			device, err := m.deviceService.GetDeviceByToken(c.Context(), apiKey)
 			if err != nil {
-				m.log.Error("Failed to get apikey", "error", err)
+				// Do not log the credential or distinguish revoked/expired/missing
+				// tokens; this is an audit signal without enumeration leakage.
+				m.log.Warn(
+					"Device token authentication failed",
+					"auth_method", "device_token",
+					"reason", "invalid_or_inactive_or_expired",
+				)
 				return fiber.ErrUnauthorized
 			}
 

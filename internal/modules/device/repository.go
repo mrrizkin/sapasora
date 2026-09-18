@@ -3,7 +3,9 @@ package device
 import (
 	"context"
 	"strings"
+	"time"
 
+	"sapasora/internal/modules/devicetoken"
 	"sapasora/platform/database"
 	"sapasora/platform/support/sql"
 )
@@ -85,14 +87,53 @@ func (r *DeviceRepositoryImpl) GetDeviceByPublicID(
 	return &result, q.Error
 }
 
+// GetDeviceByToken authenticates a token against its device owner relationship.
+//
+// The current schema has no workspace_id. Until a workspace relation exists, the
+// user_id relationship between m_device_tokens and m_devices is the only owner
+// scope available. Call GetDeviceByTokenForUser when the caller already carries
+// an authenticated user scope.
 func (r *DeviceRepositoryImpl) GetDeviceByToken(
 	ctx context.Context,
 	token string,
 ) (*Device, error) {
+	return r.getDeviceByToken(ctx, token, nil)
+}
+
+// GetDeviceByTokenForUser applies the authenticated user's owner scope in
+// addition to the token/device relationship predicates. It is intentionally an
+// optional method so the existing DeviceRepository interface remains compatible.
+func (r *DeviceRepositoryImpl) GetDeviceByTokenForUser(
+	ctx context.Context,
+	token string,
+	userID uint,
+) (*Device, error) {
+	return r.getDeviceByToken(ctx, token, &userID)
+}
+
+func (r *DeviceRepositoryImpl) getDeviceByToken(
+	ctx context.Context,
+	token string,
+	ownerID *uint,
+) (*Device, error) {
 	var result Device
-	q := r.db.WithContext(ctx).
-		Joins("JOIN m_device_tokens AS mdt ON mdt.device_id = m_devices.id").
-		Where("mdt.token = ?", token).First(&result)
+	now := time.Now()
+	qb := r.db.WithContext(ctx).
+		Model(&Device{}).
+		Joins(`JOIN m_device_tokens AS mdt ON mdt.device_id = m_devices.id
+			AND mdt.deleted_at IS NULL
+			AND mdt.status = ?
+			AND (mdt.expired_at IS NULL OR mdt.expired_at > ?)
+			AND mdt.user_id = m_devices.user_id`, devicetoken.DeviceTokenStatusActive.String(), now).
+		Where("m_devices.deleted_at IS NULL").
+		Where("m_devices.status = ?", DeviceStatusActive.String()).
+		Where("mdt.token = ?", token)
+
+	if ownerID != nil {
+		qb = qb.Where("m_devices.user_id = ?", *ownerID)
+	}
+
+	q := qb.First(&result)
 	return &result, q.Error
 }
 

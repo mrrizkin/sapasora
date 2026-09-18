@@ -25,6 +25,19 @@ type DeviceService interface {
 	SetDeviceStatusDisconnectedByPublicID(ctx context.Context, publicID string) error
 }
 
+// DeviceTokenOwnerScopedRepository is an optional extension for callers that
+// already have an authenticated owner scope. DeviceRepository intentionally
+// remains unchanged for compatibility with existing implementations.
+type DeviceTokenOwnerScopedRepository interface {
+	GetDeviceByTokenForUser(ctx context.Context, token string, userID uint) (*Device, error)
+}
+
+// DeviceTokenOwnerScopedService is an optional service extension for callers
+// that already have an authenticated owner scope.
+type DeviceTokenOwnerScopedService interface {
+	GetDeviceByTokenForUser(ctx context.Context, token string, userID uint) (*Device, error)
+}
+
 type DeviceRepository interface {
 	ListDevice(ctx context.Context, search string, page, limit int) (*Pagination[*Device], error)
 	CreateDevice(ctx context.Context, device *Device) error

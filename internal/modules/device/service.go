@@ -2,6 +2,7 @@ package device
 
 import (
 	"context"
+	"errors"
 
 	"codeberg.org/mrrizkin/nihil"
 )
@@ -46,6 +47,20 @@ func (s *DeviceServiceImpl) GetDeviceByToken(
 	token string,
 ) (*Device, error) {
 	return s.repo.GetDeviceByToken(ctx, token)
+}
+
+// GetDeviceByTokenForUser delegates to the optional owner-scoped repository
+// extension and fails closed when an implementation does not provide it.
+func (s *DeviceServiceImpl) GetDeviceByTokenForUser(
+	ctx context.Context,
+	token string,
+	userID uint,
+) (*Device, error) {
+	repo, ok := s.repo.(DeviceTokenOwnerScopedRepository)
+	if !ok {
+		return nil, errors.New("device token owner-scoped lookup is unavailable")
+	}
+	return repo.GetDeviceByTokenForUser(ctx, token, userID)
 }
 
 func (s *DeviceServiceImpl) UpdateDevice(ctx context.Context, device *Device) error {
