@@ -192,7 +192,7 @@
 - [x] Aktifkan CSP dan security headers lengkap.
 - [x] Amankan Swagger/Scalar di production.
 - [ ] Selaraskan security annotation dengan `Authorization` yang sebenarnya.
-- [ ] Perbaiki `CombinedContext` agar `Done()` tidak tertutup terlalu awal.
+- [x] Perbaiki `CombinedContext` agar `Done()` tidak tertutup terlalu awal.
 
 ---
 
