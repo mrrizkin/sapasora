@@ -87,6 +87,18 @@ func (r *DeviceRepositoryImpl) GetDeviceByPublicID(
 	return &result, q.Error
 }
 
+func (r *DeviceRepositoryImpl) GetDeviceByPublicIDForUser(
+	ctx context.Context,
+	publicID string,
+	userID uint,
+) (*Device, error) {
+	var result Device
+	q := r.db.WithContext(ctx).
+		Where("public_id = ? AND user_id = ?", publicID, userID).
+		First(&result)
+	return &result, q.Error
+}
+
 // GetDeviceByToken authenticates a token against its device owner relationship.
 //
 // The current schema has no workspace_id. Until a workspace relation exists, the

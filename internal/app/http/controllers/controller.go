@@ -2,6 +2,8 @@
 package controllers
 
 import (
+	"errors"
+
 	"sapasora/internal/modules/account"
 	"sapasora/internal/modules/apikey"
 	"sapasora/internal/modules/device"
@@ -14,6 +16,7 @@ import (
 
 	"github.com/a-h/templ"
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 type Controller struct {
@@ -62,6 +65,39 @@ func (c *Controller) GetSubject(ctx *fiber.Ctx, subjects ...string) (any, error)
 		}
 	}
 	return nil, fiber.ErrForbidden
+}
+
+// GetOwnerID returns the authenticated account ID from an account or API-key subject.
+// Resource mutation handlers must use this value instead of owner fields from the request.
+func (c *Controller) GetOwnerID(ctx *fiber.Ctx, subjects ...string) (uint, error) {
+	subject, err := c.GetSubject(ctx, subjects...)
+	if err != nil {
+		return 0, err
+	}
+
+	switch subject := subject.(type) {
+	case *account.Account:
+		if subject.ID == 0 {
+			return 0, fiber.ErrUnauthorized
+		}
+		return subject.ID, nil
+	case *apikey.APIKey:
+		if subject.UserID == 0 {
+			return 0, fiber.ErrUnauthorized
+		}
+		return subject.UserID, nil
+	default:
+		return 0, fiber.ErrUnauthorized
+	}
+}
+
+// OwnerLookupError prevents cross-owner resource lookups from exposing whether
+// a public ID exists. Database failures still propagate normally.
+func (c *Controller) OwnerLookupError(err error) error {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return fiber.ErrForbidden
+	}
+	return err
 }
 
 func (c *Controller) View(ctx *fiber.Ctx, component templ.Component) error {

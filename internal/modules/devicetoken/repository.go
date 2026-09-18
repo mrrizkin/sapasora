@@ -74,6 +74,18 @@ func (r *DeviceTokenRepositoryImpl) GetDeviceTokenByPublicID(
 	return &result, q.Error
 }
 
+func (r *DeviceTokenRepositoryImpl) GetDeviceTokenByPublicIDForUser(
+	ctx context.Context,
+	publicID string,
+	userID uint,
+) (*DeviceToken, error) {
+	var result DeviceToken
+	q := r.db.WithContext(ctx).
+		Where("public_id = ? AND user_id = ?", publicID, userID).
+		First(&result)
+	return &result, q.Error
+}
+
 func (r *DeviceTokenRepositoryImpl) GetDeviceTokenByToken(
 	ctx context.Context,
 	token string,
