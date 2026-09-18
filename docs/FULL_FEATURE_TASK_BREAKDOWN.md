@@ -465,20 +465,20 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 
 ## P4.2 Adapter contract
 
-- [ ] Definisikan `Connect` contract.
-- [ ] Definisikan `Disconnect` contract.
-- [ ] Definisikan `Health` contract.
-- [ ] Definisikan `Capabilities` contract.
-- [ ] Definisikan `Send` contract.
-- [ ] Definisikan `GetContact/User` contract.
-- [ ] Definisikan `ReceiveEvent` contract.
-- [ ] Definisikan `ValidateAddress` contract.
-- [ ] Definisikan `NormalizeError` contract.
-- [ ] Definisikan `NormalizeInboundEvent` contract.
-- [ ] Pisahkan interface berdasarkan capability.
-- [ ] Buat fake adapter untuk test.
-- [ ] Buat contract test yang wajib lulus semua adapter.
-- [ ] Buat provider error mapping catalog.
+- [x] Definisikan `Connect` contract.
+- [x] Definisikan `Disconnect` contract.
+- [x] Definisikan `Health` contract.
+- [x] Definisikan `Capabilities` contract.
+- [x] Definisikan `Send` contract.
+- [x] Definisikan `GetContact/User` contract.
+- [x] Definisikan `ReceiveEvent` contract.
+- [x] Definisikan `ValidateAddress` contract.
+- [x] Definisikan `NormalizeError` contract.
+- [x] Definisikan `NormalizeInboundEvent` contract.
+- [x] Pisahkan interface berdasarkan capability.
+- [x] Buat fake adapter untuk test.
+- [x] Buat contract test yang wajib lulus semua adapter.
+- [x] Buat provider error mapping catalog.
 
 ## P4.3 Channel lifecycle
 
