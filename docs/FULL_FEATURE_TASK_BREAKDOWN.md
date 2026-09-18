@@ -735,23 +735,23 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 
 ## P6.2 Inbox list
 
-- [ ] Tampilkan conversation list.
-- [ ] Search conversation.
-- [ ] Filter channel.
-- [ ] Filter status.
-- [ ] Filter assignee.
-- [ ] Filter team.
-- [ ] Filter priority.
-- [ ] Filter tag.
-- [ ] Filter unread.
-- [ ] Filter SLA breach.
-- [ ] Sort last activity.
-- [ ] Cursor pagination.
+- [x] Tampilkan conversation list.
+- [x] Search conversation.
+- [x] Filter channel.
+- [x] Filter status.
+- [x] Filter assignee.
+- [x] Filter team.
+- [x] Filter priority.
+- [x] Filter tag.
+- [x] Filter unread.
+- [x] Filter SLA breach.
+- [x] Sort last activity.
+- [x] Cursor pagination.
 - [ ] Preserve filter in URL query.
 - [ ] Parse URL query dengan Zod.
-- [ ] Empty state.
-- [ ] Loading state.
-- [ ] Error state.
+- [x] Empty state.
+- [x] Loading state.
+- [x] Error state.
 
 ## P6.3 Conversation detail
 

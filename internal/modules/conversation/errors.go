@@ -19,4 +19,9 @@ var (
 	ErrConversationAssignmentNotFound = ErrNotFound
 	ErrConversationAssignmentConflict = ErrConflict
 	ErrInvalidConversationAssignment  = ErrInvalid
+
+	// ErrInvalidInboxQuery and ErrInvalidInboxCursor are safe validation
+	// sentinels for the transport-neutral inbox list boundary.
+	ErrInvalidInboxQuery  = errors.New("invalid inbox query")
+	ErrInvalidInboxCursor = errors.New("invalid inbox cursor")
 )

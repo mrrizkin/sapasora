@@ -243,10 +243,10 @@ func conversationSLAOverdue(value *Conversation, at time.Time) bool {
 	if value.SLABreachedAt != nil {
 		return true
 	}
-	if value.SLAFirstRespondedAt == nil && value.SLAFirstResponseDueAt != nil && value.SLAFirstResponseDueAt.Before(at) {
+	if value.SLAFirstRespondedAt == nil && value.SLAFirstResponseDueAt != nil && !value.SLAFirstResponseDueAt.After(at) {
 		return true
 	}
-	return value.SLAResolvedAt == nil && value.SLAResolutionDueAt != nil && value.SLAResolutionDueAt.Before(at)
+	return value.SLAResolvedAt == nil && value.SLAResolutionDueAt != nil && !value.SLAResolutionDueAt.After(at)
 }
 
 func (r *InMemoryRepository) UpdateConversation(ctx context.Context, value *Conversation) error {
