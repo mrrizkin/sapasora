@@ -23,6 +23,7 @@ func TestDefaultErrorHandlerSanitizesProductionErrors(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/failure", nil)
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set(fiber.HeaderXRequestID, "request-123")
 	resp, err := app.Test(req)
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
@@ -33,6 +34,8 @@ func TestDefaultErrorHandlerSanitizesProductionErrors(t *testing.T) {
 	require.NotContains(t, string(body), "postgres://")
 	require.NotContains(t, string(body), "database password")
 	require.Contains(t, string(body), "Internal Server Error")
+	require.Contains(t, string(body), `"code":"internal_error"`)
+	require.Contains(t, string(body), `"request_id":"request-123"`)
 }
 
 func TestDefaultErrorHandlerRedactsSensitiveClientError(t *testing.T) {
@@ -54,4 +57,5 @@ func TestDefaultErrorHandlerRedactsSensitiveClientError(t *testing.T) {
 	require.NoError(t, err)
 	require.NotContains(t, string(body), "secret-value")
 	require.Contains(t, string(body), "Bad Request")
+	require.Contains(t, string(body), `"code":"bad_request"`)
 }

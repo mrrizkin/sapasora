@@ -21,9 +21,11 @@ import (
 )
 
 type ResError[T any] struct {
-	Status  nihil.NilString `json:"status"           example:"error"`
-	Message nihil.NilString `json:"message"          example:"error"`
-	Detail  T               `json:"detail,omitempty"`
+	Status    nihil.NilString `json:"status"     example:"error"`
+	Code      nihil.NilString `json:"code"       example:"internal_error"`
+	Message   nihil.NilString `json:"message"    example:"Request failed"`
+	RequestID nihil.NilString `json:"request_id" example:"4d5f4a1e-4c4c-4b58-8e7a-8ac0c41c4b0c"`
+	Detail    T               `json:"detail,omitempty"`
 } //@name ResponseError
 
 var errorTemplate = `<!DOCTYPE html>
@@ -147,12 +149,47 @@ func DefaultErrorHandler(c config.Config) fiber.ErrorHandler {
 		}
 
 		response := ResError[[]string]{
-			Status:  nihil.String(http.StatusText(code)),
-			Message: nihil.String(publicErrorMessage(code, err, isDevelopment(c))),
-			Detail:  detail,
+			Status:    nihil.String(http.StatusText(code)),
+			Code:      nihil.String(publicErrorCode(code)),
+			Message:   nihil.String(publicErrorMessage(code, err, isDevelopment(c))),
+			RequestID: nihil.String(requestID(ctx)),
+			Detail:    detail,
 		}
 
 		return ctx.Status(code).JSON(response)
+	}
+}
+
+func requestID(ctx *fiber.Ctx) string {
+	if id, ok := ctx.Locals("requestid").(string); ok && id != "" {
+		return id
+	}
+	return ctx.Get(fiber.HeaderXRequestID)
+}
+
+func publicErrorCode(code int) string {
+	switch code {
+	case fiber.StatusBadRequest:
+		return "bad_request"
+	case fiber.StatusUnauthorized:
+		return "unauthorized"
+	case fiber.StatusForbidden:
+		return "forbidden"
+	case fiber.StatusNotFound:
+		return "not_found"
+	case fiber.StatusConflict:
+		return "conflict"
+	case fiber.StatusUnprocessableEntity:
+		return "validation_failed"
+	case fiber.StatusServiceUnavailable:
+		return "provider_unavailable"
+	case fiber.StatusTooManyRequests:
+		return "rate_limited"
+	default:
+		if code >= fiber.StatusInternalServerError {
+			return "internal_error"
+		}
+		return "request_failed"
 	}
 }
 
