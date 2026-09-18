@@ -482,14 +482,14 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 
 ## P4.3 Channel lifecycle
 
-- [ ] Implementasikan `pending` state.
-- [ ] Implementasikan `connecting` state.
-- [ ] Implementasikan `connected` state.
-- [ ] Implementasikan `degraded` state.
-- [ ] Implementasikan `disconnected` state.
-- [ ] Implementasikan `expired` state.
-- [ ] Implementasikan `error` state.
-- [ ] Validasi semua state transition.
+- [x] Implementasikan `pending` state.
+- [x] Implementasikan `connecting` state.
+- [x] Implementasikan `connected` state.
+- [x] Implementasikan `degraded` state.
+- [x] Implementasikan `disconnected` state.
+- [x] Implementasikan `expired` state.
+- [x] Implementasikan `error` state.
+- [x] Validasi semua state transition.
 - [ ] Buat reconnect backoff.
 - [ ] Buat provider circuit breaker.
 - [ ] Buat per-channel distributed lock.

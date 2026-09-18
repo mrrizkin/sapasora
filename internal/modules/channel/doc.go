@@ -1,6 +1,8 @@
-// Package channel defines the provider-neutral channel adapter boundary.
+// Package channel defines the provider-neutral channel adapter boundary and
+// channel lifecycle state machine.
 //
-// The contracts in this package are additive. Existing WhatsApp and Telegram
-// implementations are intentionally not required to implement them yet; the
-// next step is an explicit provider-by-provider integration and migration.
+// The contracts and lifecycle state machine are additive. Existing WhatsApp
+// and Telegram implementations are intentionally not required to implement
+// them yet; provider-by-provider integration and migration remain separate
+// work.
 package channel
