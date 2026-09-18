@@ -874,19 +874,19 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 ## P7.4 Queue and outbox
 
 - [ ] Buat outbox event table.
-- [ ] Buat message send job.
-- [ ] Publish outbox safely.
-- [ ] Implementasikan worker claim/lease.
-- [ ] Implementasikan bounded concurrency.
+- [x] Buat message send job.
+- [x] Publish outbox safely.
+- [x] Implementasikan worker claim/lease.
+- [x] Implementasikan bounded concurrency.
 - [ ] Implementasikan queue per provider/channel.
 - [ ] Implementasikan ordering policy.
-- [ ] Implementasikan retryable classification.
-- [ ] Implementasikan exponential backoff.
-- [ ] Implementasikan jitter.
-- [ ] Implementasikan dead-letter.
-- [ ] Implementasikan manual replay.
-- [ ] Implementasikan cancellation sebelum provider accept.
-- [ ] Implementasikan graceful shutdown.
+- [x] Implementasikan retryable classification.
+- [x] Implementasikan exponential backoff.
+- [x] Implementasikan jitter.
+- [x] Implementasikan dead-letter.
+- [x] Implementasikan manual replay.
+- [x] Implementasikan cancellation sebelum provider accept.
+- [x] Implementasikan graceful shutdown.
 - [ ] Tambahkan queue metrics.
 - [ ] Tambahkan queue age alert.
 
