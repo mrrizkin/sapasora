@@ -95,11 +95,14 @@ func (r *InMemoryContactRepository) CreateContact(ctx context.Context, contact *
 	if strings.TrimSpace(candidate.PublicID) == "" {
 		candidate.PublicID = hash.NanoID(21)
 	}
-	if candidate.Status == ContactStatusUnknown {
+	if candidate.Status == "" || candidate.Status == ContactStatusUnknown {
 		candidate.Status = ContactStatusActive
 	}
-	if candidate.Source == ContactSourceUnknown {
+	if candidate.Source == "" || candidate.Source == ContactSourceUnknown {
 		candidate.Source = ContactSourceManual
+	}
+	if candidate.DeletedAt != nil {
+		return fmt.Errorf("%w: deleted contact cannot be created", ErrInvalidContact)
 	}
 	if candidate.CreatedAt.IsZero() {
 		candidate.CreatedAt = time.Now().UTC()
@@ -135,7 +138,7 @@ func (r *InMemoryContactRepository) GetContactByPublicID(ctx context.Context, te
 		return nil, ErrContactNotFound
 	}
 	contact, ok := r.contacts[id]
-	if !ok {
+	if !ok || contact.DeletedAt != nil {
 		return nil, ErrContactNotFound
 	}
 	return cloneContact(contact), nil
@@ -148,7 +151,7 @@ func (r *InMemoryContactRepository) GetContactByID(ctx context.Context, tenantID
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	contact, ok := r.contacts[id]
-	if !ok || contact.TenantID != tenantID {
+	if !ok || contact.TenantID != tenantID || contact.DeletedAt != nil {
 		return nil, ErrContactNotFound
 	}
 	return cloneContact(contact), nil
@@ -166,7 +169,7 @@ func (r *InMemoryContactRepository) ListContacts(ctx context.Context, tenantID s
 	result := make([]*Contact, 0)
 	for id := uint64(1); id < r.nextContactID; id++ {
 		contact, ok := r.contacts[id]
-		if !ok || contact.TenantID != tenantID {
+		if !ok || contact.TenantID != tenantID || contact.DeletedAt != nil {
 			continue
 		}
 		if filter.Status != nil && contact.Status != *filter.Status {
@@ -195,16 +198,45 @@ func (r *InMemoryContactRepository) UpdateContact(ctx context.Context, contact *
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	stored, ok := r.contacts[candidate.ID]
-	if !ok || stored.TenantID != candidate.TenantID {
+	if !ok || stored.TenantID != candidate.TenantID || stored.DeletedAt != nil {
 		return ErrContactNotFound
 	}
 	if stored.PublicID != candidate.PublicID {
 		return ErrContactConflict
 	}
+	candidate.DeletedAt = nil
 	candidate.CreatedAt = stored.CreatedAt
 	candidate.UpdatedAt = time.Now().UTC()
 	r.contacts[candidate.ID] = candidate
 	*contact = *cloneContact(candidate)
+	return nil
+}
+
+func (r *InMemoryContactRepository) DeleteContact(ctx context.Context, tenantID, publicID string) error {
+	if err := repositoryContextError(ctx); err != nil {
+		return err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	id, ok := r.contactByKey[scopedKey(tenantID, publicID)]
+	if !ok {
+		return ErrContactNotFound
+	}
+	stored, ok := r.contacts[id]
+	if !ok || stored.DeletedAt != nil {
+		return ErrContactNotFound
+	}
+	now := time.Now().UTC()
+	stored.DeletedAt = &now
+	stored.UpdatedAt = now
+	for _, address := range r.addresses {
+		if address.TenantID != tenantID || address.ContactID != id || address.DeletedAt != nil {
+			continue
+		}
+		address.DeletedAt = &now
+		address.UpdatedAt = now
+		delete(r.identityIndex, tenantIdentityKey(tenantID, address.Identity))
+	}
 	return nil
 }
 
@@ -222,14 +254,17 @@ func (r *InMemoryContactRepository) CreateContactAddress(ctx context.Context, ad
 	if candidate.PublicID == "" {
 		candidate.PublicID = hash.NanoID(21)
 	}
-	if candidate.Source == ContactSourceUnknown {
+	if candidate.Source == "" || candidate.Source == ContactSourceUnknown {
 		candidate.Source = ContactSourceManual
 	}
-	if candidate.Consent.State == "" {
+	if candidate.Consent.State == "" || candidate.Consent.State == ConsentStateUnknown {
 		candidate.Consent.State = ConsentStateUnknown
 	}
-	if candidate.Consent.Source == "" {
+	if candidate.Consent.Source == "" || candidate.Consent.Source == ConsentSourceUnknown {
 		candidate.Consent.Source = ConsentSourceUnknown
+	}
+	if candidate.DeletedAt != nil {
+		return fmt.Errorf("%w: deleted address cannot be created", ErrInvalidContactAddress)
 	}
 	if candidate.CreatedAt.IsZero() {
 		candidate.CreatedAt = time.Now().UTC()
@@ -243,7 +278,7 @@ func (r *InMemoryContactRepository) CreateContactAddress(ctx context.Context, ad
 	defer r.mu.Unlock()
 	r.ensureInitializedLocked()
 	contact, ok := r.contacts[candidate.ContactID]
-	if !ok || contact.TenantID != candidate.TenantID {
+	if !ok || contact.TenantID != candidate.TenantID || contact.DeletedAt != nil {
 		return ErrContactNotFound
 	}
 	publicKey := scopedKey(candidate.TenantID, candidate.PublicID)
@@ -274,7 +309,7 @@ func (r *InMemoryContactRepository) GetContactAddressByPublicID(ctx context.Cont
 		return nil, ErrContactAddressNotFound
 	}
 	address, ok := r.addresses[id]
-	if !ok {
+	if !ok || address.DeletedAt != nil {
 		return nil, ErrContactAddressNotFound
 	}
 	return cloneContactAddress(address), nil
@@ -287,7 +322,7 @@ func (r *InMemoryContactRepository) GetContactAddressByID(ctx context.Context, t
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	address, ok := r.addresses[id]
-	if !ok || address.TenantID != tenantID {
+	if !ok || address.TenantID != tenantID || address.DeletedAt != nil {
 		return nil, ErrContactAddressNotFound
 	}
 	return cloneContactAddress(address), nil
@@ -308,7 +343,7 @@ func (r *InMemoryContactRepository) FindContactAddressByIdentity(ctx context.Con
 		return nil, ErrContactAddressNotFound
 	}
 	address, ok := r.addresses[id]
-	if !ok {
+	if !ok || address.DeletedAt != nil {
 		return nil, ErrContactAddressNotFound
 	}
 	return cloneContactAddress(address), nil
@@ -324,13 +359,13 @@ func (r *InMemoryContactRepository) ListContactAddresses(ctx context.Context, te
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	contact, ok := r.contacts[contactID]
-	if !ok || contact.TenantID != tenantID {
+	if !ok || contact.TenantID != tenantID || contact.DeletedAt != nil {
 		return nil, ErrContactNotFound
 	}
 	result := make([]*ContactAddress, 0)
 	for id := uint64(1); id < r.nextAddressID; id++ {
 		address, ok := r.addresses[id]
-		if ok && address.TenantID == tenantID && address.ContactID == contactID {
+		if ok && address.TenantID == tenantID && address.ContactID == contactID && address.DeletedAt == nil {
 			result = append(result, cloneContactAddress(address))
 		}
 	}
@@ -355,11 +390,15 @@ func (r *InMemoryContactRepository) UpdateContactAddress(ctx context.Context, ad
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	stored, ok := r.addresses[candidate.ID]
-	if !ok || stored.TenantID != candidate.TenantID {
+	if !ok || stored.TenantID != candidate.TenantID || stored.DeletedAt != nil {
 		return ErrContactAddressNotFound
 	}
 	if stored.PublicID != candidate.PublicID || stored.ContactID != candidate.ContactID {
 		return ErrContactAddressConflict
+	}
+	contact, ok := r.contacts[candidate.ContactID]
+	if !ok || contact.TenantID != candidate.TenantID || contact.DeletedAt != nil {
+		return ErrContactNotFound
 	}
 	newKey := tenantIdentityKey(candidate.TenantID, candidate.Identity)
 	if existingID, exists := r.identityIndex[newKey]; exists && existingID != candidate.ID {
@@ -367,11 +406,33 @@ func (r *InMemoryContactRepository) UpdateContactAddress(ctx context.Context, ad
 	}
 	oldKey := tenantIdentityKey(stored.TenantID, stored.Identity)
 	delete(r.identityIndex, oldKey)
+	candidate.DeletedAt = nil
 	candidate.CreatedAt = stored.CreatedAt
 	candidate.UpdatedAt = time.Now().UTC()
 	r.addresses[candidate.ID] = candidate
 	r.identityIndex[newKey] = candidate.ID
 	*address = *cloneContactAddress(candidate)
+	return nil
+}
+
+func (r *InMemoryContactRepository) DeleteContactAddress(ctx context.Context, tenantID, publicID string) error {
+	if err := repositoryContextError(ctx); err != nil {
+		return err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	id, ok := r.addressByKey[scopedKey(tenantID, publicID)]
+	if !ok {
+		return ErrContactAddressNotFound
+	}
+	address, ok := r.addresses[id]
+	if !ok || address.TenantID != tenantID || address.DeletedAt != nil {
+		return ErrContactAddressNotFound
+	}
+	now := time.Now().UTC()
+	address.DeletedAt = &now
+	address.UpdatedAt = now
+	delete(r.identityIndex, tenantIdentityKey(tenantID, address.Identity))
 	return nil
 }
 
@@ -422,6 +483,7 @@ func cloneContact(contact *Contact) *Contact {
 	copy := *contact
 	copy.SourceMetadata = cloneStringMap(contact.SourceMetadata)
 	copy.CustomFields = cloneStringMap(contact.CustomFields)
+	copy.DeletedAt = cloneTime(contact.DeletedAt)
 	copy.Tags = append([]string(nil), contact.Tags...)
 	return &copy
 }
@@ -436,6 +498,15 @@ func cloneContactAddress(address *ContactAddress) *ContactAddress {
 		occurredAt := *address.Consent.OccurredAt
 		copy.Consent.OccurredAt = &occurredAt
 	}
+	copy.DeletedAt = cloneTime(address.DeletedAt)
+	return &copy
+}
+
+func cloneTime(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	copy := *value
 	return &copy
 }
 

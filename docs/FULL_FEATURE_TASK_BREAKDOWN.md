@@ -636,14 +636,14 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 
 ## P5.2 Contact CRUD
 
-- [ ] Create contact.
-- [ ] Read contact.
-- [ ] Update contact.
-- [ ] Soft delete contact.
+- [x] Create contact.
+- [x] Read contact.
+- [x] Update contact.
+- [x] Soft delete contact.
 - [ ] Restore contact.
 - [ ] Permanent purge dengan permission.
 - [ ] Search contact.
-- [ ] Filter contact.
+- [x] Filter contact.
 - [ ] Sort contact.
 - [ ] Cursor pagination contact.
 - [ ] Bulk update contact.

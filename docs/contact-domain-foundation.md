@@ -1,4 +1,4 @@
-# Contact domain foundation (Track 5.1)
+# Contact domain foundation and CRUD boundary (Tracks 5.1–5.2)
 
 `internal/modules/contact` is the additive, provider-neutral foundation for
 contacts and contact identities.
@@ -23,12 +23,19 @@ contacts and contact identities.
 The in-memory repository is concurrency-safe and exists for domain tests/local
 composition. It is not a production persistence implementation.
 
-## Deliberately not wired yet
+## Track 5.2 CRUD boundary
 
-This track does **not** add database migrations/tables, controllers, routes,
-provider adapters, provider sync, consent enforcement, CRUD APIs, or DI/module
-registration. Future integration should map provider payloads at the provider
-boundary, authorize the tenant before repository calls, and add a durable
-unique constraint plus migration in a separate track. API DTOs should make an
-explicit choice about which PII may be returned rather than serializing domain
-models directly.
+`ContactService` in `internal/modules/contact/service.go` is the use-case
+boundary for tenant-scoped create, get, list, update, and soft-delete
+operations on contacts and addresses. It requires the tenant ID on every
+operation, validates ownership assertions on write models, resolves contact
+ownership before address operations, and exposes only the stable
+`ErrNotFound`, `ErrConflict`, and `ErrInvalid` error families.
+
+The service is intentionally transport-neutral. HTTP/controllers must select
+and authorize the tenant before calling it, map domain models into explicit
+API DTOs (including deliberate PII choices), and translate domain errors into
+HTTP responses. This track does **not** add controllers, routes, provider
+adapters, consent enforcement, database migrations/tables, or DI/module
+registration. Durable adapters must preserve the tenant-scoped public-ID and
+normalized identity uniqueness constraints atomically.

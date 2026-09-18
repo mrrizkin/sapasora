@@ -17,6 +17,7 @@ type ContactRepository interface {
 	GetContactByID(context.Context, string, uint64) (*Contact, error)
 	ListContacts(context.Context, string, ContactFilter) ([]*Contact, error)
 	UpdateContact(context.Context, *Contact) error
+	DeleteContact(context.Context, string, string) error
 
 	CreateContactAddress(context.Context, *ContactAddress) error
 	GetContactAddressByPublicID(context.Context, string, string) (*ContactAddress, error)
@@ -24,6 +25,7 @@ type ContactRepository interface {
 	FindContactAddressByIdentity(context.Context, string, AddressIdentity) (*ContactAddress, error)
 	ListContactAddresses(context.Context, string, uint64) ([]*ContactAddress, error)
 	UpdateContactAddress(context.Context, *ContactAddress) error
+	DeleteContactAddress(context.Context, string, string) error
 }
 
 // Repository is a concise compatibility alias for the domain boundary.
