@@ -1,7 +1,7 @@
-// Package message contains the provider-neutral Track 7.1 message domain.
+// Package message contains the provider-neutral Track 7.1/7.2 message domain.
 //
 // It owns tenant/workspace-scoped message records, attachment metadata,
-// delivery observations, and append-only message events. Provider send APIs,
-// state transition policy, transports, migrations, and UI wiring remain outside
-// this package.
+// delivery observations, strict message state transitions, and append-only
+// message events. Provider send APIs, transports, migrations, and UI wiring
+// remain outside this package.
 package message

@@ -833,20 +833,20 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 
 ## P7.2 Message state machine
 
-- [ ] Implementasikan `accepted`.
-- [ ] Implementasikan `queued`.
-- [ ] Implementasikan `sending`.
-- [ ] Implementasikan `sent`.
-- [ ] Implementasikan `delivered`.
-- [ ] Implementasikan `read`.
-- [ ] Implementasikan `failed`.
-- [ ] Implementasikan `retrying`.
-- [ ] Implementasikan `dead_letter`.
-- [ ] Implementasikan `canceled`.
-- [ ] Validasi transition.
-- [ ] Simpan event setiap transition.
-- [ ] Deduplicate provider status event.
-- [ ] Bedakan platform accepted dan provider accepted.
+- [x] Implementasikan `accepted`.
+- [x] Implementasikan `queued`.
+- [x] Implementasikan `sending`.
+- [x] Implementasikan `sent`.
+- [x] Implementasikan `delivered`.
+- [x] Implementasikan `read`.
+- [x] Implementasikan `failed`.
+- [x] Implementasikan `retrying`.
+- [x] Implementasikan `dead_letter`.
+- [x] Implementasikan `canceled`.
+- [x] Validasi transition.
+- [x] Simpan event setiap transition.
+- [x] Deduplicate provider status event.
+- [x] Bedakan platform accepted dan provider accepted.
 
 ## P7.3 Composer
 
