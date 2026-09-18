@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestContactServiceCRUDIsTenantScoped(t *testing.T) {
@@ -168,6 +169,112 @@ func TestContactServiceSoftDeleteCascadesAndReleasesIdentity(t *testing.T) {
 	}
 	if err := service.CreateContactAddress(ctx, "tenant-a", &reused); err != nil {
 		t.Fatalf("CreateContactAddress(reused identity) error = %v", err)
+	}
+}
+
+func TestContactServiceConsentTransitionsAndSuppressionPrecedence(t *testing.T) {
+	ctx := context.Background()
+	repository := NewInMemoryContactRepository()
+	service := NewContactService(repository)
+	contactA := Contact{PublicID: "contact-a"}
+	contactB := Contact{PublicID: "contact-b"}
+	if err := service.CreateContact(ctx, "tenant-a", &contactA); err != nil {
+		t.Fatalf("CreateContact(a) error = %v", err)
+	}
+	if err := service.CreateContact(ctx, "tenant-b", &contactB); err != nil {
+		t.Fatalf("CreateContact(b) error = %v", err)
+	}
+	addressA, err := NewContactAddress("tenant-a", contactA.ID, AddressKindEmail, "", "person@example.com")
+	if err != nil {
+		t.Fatalf("NewContactAddress(a) error = %v", err)
+	}
+	addressA.PublicID = "address-a"
+	addressB, err := NewContactAddress("tenant-b", contactB.ID, AddressKindEmail, "", "person@example.com")
+	if err != nil {
+		t.Fatalf("NewContactAddress(b) error = %v", err)
+	}
+	addressB.PublicID = "address-b"
+	if err := service.CreateContactAddress(ctx, "tenant-a", &addressA); err != nil {
+		t.Fatalf("CreateContactAddress(a) error = %v", err)
+	}
+	if err := service.CreateContactAddress(ctx, "tenant-b", &addressB); err != nil {
+		t.Fatalf("CreateContactAddress(b) error = %v", err)
+	}
+
+	if sendable, err := service.IsContactAddressSendable(ctx, "tenant-a", addressA.PublicID); err != nil || sendable {
+		t.Fatalf("unknown consent sendability = %t, %v; want false", sendable, err)
+	}
+	const layout = time.RFC3339
+	t1, _ := time.Parse(layout, "2026-01-01T00:00:00Z")
+	t0 := t1.Add(-time.Minute)
+	t2 := t1.Add(time.Minute)
+	t3 := t2.Add(time.Minute)
+	if err := service.OptIn(ctx, "tenant-a", addressA.PublicID, ConsentMetadata{Source: ConsentSourceAPI, OccurredAt: &t1, EvidenceRef: "evidence-a", ActorID: "actor-a"}); err != nil {
+		t.Fatalf("OptIn() error = %v", err)
+	}
+	if sendable, err := service.IsContactAddressSendable(ctx, "tenant-a", addressA.PublicID); err != nil || !sendable {
+		t.Fatalf("opt-in sendability = %t, %v; want true", sendable, err)
+	}
+	events, err := service.ListConsentEvents(ctx, "tenant-a", addressA.PublicID)
+	if err != nil || len(events) != 1 || events[0].Sequence != 1 || events[0].Metadata.EvidenceRef != "evidence-a" || events[0].Metadata.ActorID != "actor-a" {
+		t.Fatalf("consent audit after opt-in = %+v, %v", events, err)
+	}
+	if err := service.OptOut(ctx, "tenant-a", addressA.PublicID, ConsentMetadata{Source: ConsentSourceInbound, OccurredAt: &t0}); !errors.Is(err, ErrConflict) {
+		t.Fatalf("stale OptOut() error = %v, want ErrConflict", err)
+	}
+	if err := service.OptOut(ctx, "tenant-a", addressA.PublicID, ConsentMetadata{Source: ConsentSourceInbound, OccurredAt: &t2}); err != nil {
+		t.Fatalf("OptOut() error = %v", err)
+	}
+	if sendable, err := service.IsContactAddressSendable(ctx, "tenant-a", addressA.PublicID); err != nil || sendable {
+		t.Fatalf("opt-out sendability = %t, %v; want false", sendable, err)
+	}
+	suppressions, err := service.ListSuppressions(ctx, "tenant-a", addressA.PublicID)
+	if err != nil || len(suppressions) != 1 || suppressions[0].Reason != SuppressionReasonOptOut || !suppressions[0].Active() {
+		t.Fatalf("opt-out suppressions = %+v, %v", suppressions, err)
+	}
+	events, err = service.ListConsentEvents(ctx, "tenant-a", addressA.PublicID)
+	if err != nil || len(events) != 2 || events[1].Sequence != 2 || !events[1].Metadata.OccurredAt.Equal(t2) {
+		t.Fatalf("consent audit after opt-out = %+v, %v", events, err)
+	}
+
+	// Re-consent resolves only the opt-out suppression; a separate block still
+	// wins over opted-in consent.
+	if err := service.OptIn(ctx, "tenant-a", addressA.PublicID, ConsentMetadata{Source: ConsentSourceManual, OccurredAt: &t3}); err != nil {
+		t.Fatalf("second OptIn() error = %v", err)
+	}
+	if sendable, err := service.IsContactAddressSendable(ctx, "tenant-a", addressA.PublicID); err != nil || !sendable {
+		t.Fatalf("re-opt-in sendability = %t, %v; want true", sendable, err)
+	}
+	if err := service.BlockAddress(ctx, "tenant-a", addressA.PublicID, ConsentMetadata{Source: ConsentSourceAPI, OccurredAt: &t3}); err != nil {
+		t.Fatalf("BlockAddress() error = %v", err)
+	}
+	suppressions, err = service.ListSuppressions(ctx, "tenant-a", addressA.PublicID)
+	if err != nil || len(suppressions) != 2 {
+		t.Fatalf("opt-out plus blocked suppressions = %+v, %v", suppressions, err)
+	}
+	if sendable, err := service.IsContactAddressSendable(ctx, "tenant-a", addressA.PublicID); err != nil || sendable {
+		t.Fatalf("blocked opted-in sendability = %t, %v; want false", sendable, err)
+	}
+	if err := service.OptIn(ctx, "tenant-a", addressA.PublicID, ConsentMetadata{Source: ConsentSourceManual, OccurredAt: &t3}); err != nil {
+		t.Fatalf("third OptIn() error = %v", err)
+	}
+	if sendable, err := service.IsContactAddressSendable(ctx, "tenant-a", addressA.PublicID); err != nil || sendable {
+		t.Fatalf("blocked re-opt-in sendability = %t, %v; want false", sendable, err)
+	}
+	if err := service.UnsuppressAddress(ctx, "tenant-a", addressA.PublicID, SuppressionReasonBlocked); err != nil {
+		t.Fatalf("UnsuppressAddress() error = %v", err)
+	}
+	if sendable, err := service.IsContactAddressSendable(ctx, "tenant-a", addressA.PublicID); err != nil || !sendable {
+		t.Fatalf("unblocked opted-in sendability = %t, %v; want true", sendable, err)
+	}
+
+	// The same normalized identity in another tenant has independent consent
+	// and suppression state, and another tenant cannot address tenant A data.
+	if sendable, err := service.IsContactAddressSendable(ctx, "tenant-b", addressB.PublicID); err != nil || sendable {
+		t.Fatalf("isolated tenant sendability = %t, %v; want false", sendable, err)
+	}
+	if _, err := service.ListConsentEvents(ctx, "tenant-b", addressA.PublicID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("cross-tenant consent lookup error = %v, want ErrNotFound", err)
 	}
 }
 

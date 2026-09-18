@@ -671,20 +671,20 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 
 ## P5.4 Consent and suppression
 
-- [ ] Definisikan consent state per channel.
-- [ ] Simpan consent source.
-- [ ] Simpan consent timestamp.
-- [ ] Simpan evidence/reference.
-- [ ] Simpan actor.
-- [ ] Buat immutable consent event.
-- [ ] Implementasikan opt-in.
-- [ ] Implementasikan opt-out.
+- [x] Definisikan consent state per channel.
+- [x] Simpan consent source.
+- [x] Simpan consent timestamp.
+- [x] Simpan evidence/reference.
+- [x] Simpan actor.
+- [x] Buat immutable consent event.
+- [x] Implementasikan opt-in.
+- [x] Implementasikan opt-out.
 - [ ] Implementasikan global suppression.
-- [ ] Implementasikan per-channel suppression.
+- [x] Implementasikan per-channel suppression.
 - [ ] Implementasikan STOP handler SMS.
 - [ ] Implementasikan unsubscribe email.
-- [ ] Block send ke opted-out recipient.
-- [ ] Tambahkan consent audit.
+- [x] Block send ke opted-out recipient.
+- [x] Tambahkan consent audit.
 - [ ] Tambahkan consent export/delete handling.
 
 ## P5.5 Segment dan audience

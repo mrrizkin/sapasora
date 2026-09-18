@@ -150,6 +150,108 @@ func (m ConsentMetadata) MarshalJSON() ([]byte, error) {
 	}{m.State, m.Source, m.OccurredAt})
 }
 
+// ConsentTransition is the input shape for an auditable consent change. It is
+// an alias so callers cannot accidentally bypass the metadata rules.
+type ConsentTransition = ConsentMetadata
+
+// ConsentEvent is an append-only consent audit record. Sequence is monotonic
+// per address; RecordedAt describes when the repository accepted the event,
+// while Metadata.OccurredAt describes when the evidence happened.
+type ConsentEvent struct {
+	ID         uint64          `json:"id"`
+	TenantID   string          `json:"tenant_id"`
+	AddressID  uint64          `json:"address_id"`
+	Sequence   uint64          `json:"sequence"`
+	State      ConsentState    `json:"state"`
+	Metadata   ConsentMetadata `json:"metadata"`
+	RecordedAt time.Time       `json:"recorded_at"`
+}
+
+func (e ConsentEvent) Valid() error {
+	if strings.TrimSpace(e.TenantID) == "" || e.AddressID == 0 || e.Sequence == 0 {
+		return errors.New("invalid consent event ownership")
+	}
+	if e.State != e.Metadata.State || e.State == ConsentStateUnknown {
+		return errors.New("invalid consent event state")
+	}
+	return e.Metadata.Valid()
+}
+
+func (e ConsentEvent) String() string {
+	return fmt.Sprintf("ConsentEvent{address_id=%d sequence=%d state=%s source=%s}", e.AddressID, e.Sequence, e.State, e.Metadata.Source)
+}
+
+// SuppressionReason identifies why an address must not receive sends.
+type SuppressionReason string
+
+const (
+	SuppressionReasonOptOut  SuppressionReason = "opt_out"
+	SuppressionReasonBlocked SuppressionReason = "blocked"
+)
+
+func (r SuppressionReason) Valid() bool {
+	return r == SuppressionReasonOptOut || r == SuppressionReasonBlocked
+}
+
+// SuppressionRecord is tenant-scoped and keyed by a normalized address
+// identity. Resolved records remain available as history; only records without
+// ResolvedAt participate in sendability checks.
+type SuppressionRecord struct {
+	ID          uint64            `json:"id"`
+	TenantID    string            `json:"tenant_id"`
+	Identity    AddressIdentity   `json:"-"`
+	Reason      SuppressionReason `json:"reason"`
+	Source      ConsentSource     `json:"source"`
+	OccurredAt  *time.Time        `json:"occurred_at,omitempty"`
+	EvidenceRef string            `json:"-"`
+	ActorID     string            `json:"-"`
+	CreatedAt   time.Time         `json:"created_at"`
+	ResolvedAt  *time.Time        `json:"resolved_at,omitempty"`
+}
+
+func (r SuppressionRecord) Valid() error {
+	if strings.TrimSpace(r.TenantID) == "" {
+		return errors.New("tenant id is required")
+	}
+	if err := r.Identity.Valid(); err != nil {
+		return err
+	}
+	if !r.Reason.Valid() {
+		return errors.New("invalid suppression reason")
+	}
+	if !r.Source.Valid() || r.Source == ConsentSourceUnknown {
+		return errors.New("invalid suppression source")
+	}
+	if r.OccurredAt != nil && r.OccurredAt.IsZero() {
+		return errors.New("suppression timestamp is invalid")
+	}
+	if r.ResolvedAt != nil && r.ResolvedAt.IsZero() {
+		return errors.New("suppression resolution timestamp is invalid")
+	}
+	return nil
+}
+
+func (r SuppressionRecord) Active() bool { return r.ResolvedAt == nil }
+
+func (r SuppressionRecord) String() string {
+	return fmt.Sprintf("SuppressionRecord{tenant_id=%s kind=%s namespace=%s reason=%s source=%s active=%t}", r.TenantID, r.Identity.Kind, r.Identity.Namespace, r.Reason, r.Source, r.Active())
+}
+
+func (r SuppressionRecord) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		ID              uint64            `json:"id"`
+		TenantID        string            `json:"tenant_id"`
+		Kind            AddressKind       `json:"kind"`
+		Namespace       string            `json:"namespace"`
+		IdentityPresent bool              `json:"identity_present"`
+		Reason          SuppressionReason `json:"reason"`
+		Source          ConsentSource     `json:"source"`
+		OccurredAt      *time.Time        `json:"occurred_at,omitempty"`
+		CreatedAt       time.Time         `json:"created_at"`
+		ResolvedAt      *time.Time        `json:"resolved_at,omitempty"`
+	}{r.ID, r.TenantID, r.Identity.Kind, r.Identity.Namespace, r.Identity.Value != "", r.Reason, r.Source, r.OccurredAt, r.CreatedAt, r.ResolvedAt})
+}
+
 // AddressIdentity is the normalized, unique identity of an address. Value is
 // intentionally excluded from JSON and String diagnostics because it is PII.
 // Namespace is usually "global"; provider-specific usernames can use an

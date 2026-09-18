@@ -26,6 +26,13 @@ type ContactRepository interface {
 	ListContactAddresses(context.Context, string, uint64) ([]*ContactAddress, error)
 	UpdateContactAddress(context.Context, *ContactAddress) error
 	DeleteContactAddress(context.Context, string, string) error
+
+	TransitionContactAddressConsent(context.Context, string, uint64, ConsentTransition) (*ConsentEvent, error)
+	ListConsentEvents(context.Context, string, uint64) ([]*ConsentEvent, error)
+	CreateSuppression(context.Context, *SuppressionRecord) error
+	ListSuppressions(context.Context, string, AddressIdentity) ([]*SuppressionRecord, error)
+	ResolveSuppression(context.Context, string, AddressIdentity, SuppressionReason) error
+	IsAddressSendable(context.Context, string, AddressIdentity) (bool, error)
 }
 
 // Repository is a concise compatibility alias for the domain boundary.
