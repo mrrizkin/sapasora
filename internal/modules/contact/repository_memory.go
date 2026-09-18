@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +26,7 @@ type InMemoryContactRepository struct {
 	nextSegmentID      uint64
 	nextExclusionID    uint64
 	nextSnapshotID     uint64
+	nextMergeID        uint64
 	contacts           map[uint64]*Contact
 	contactByKey       map[string]uint64
 	addresses          map[uint64]*ContactAddress
@@ -40,6 +42,9 @@ type InMemoryContactRepository struct {
 	exclusionByKey     map[string]uint64
 	snapshots          map[uint64]*AudienceSnapshot
 	snapshotByKey      map[string]uint64
+	mergeAudits        map[uint64]*storedMergeAudit
+	mergeAuditByKey    map[string]uint64
+	mergeUndos         map[string]*MergeUndoAudit
 }
 
 var _ ContactRepository = (*InMemoryContactRepository)(nil)
@@ -57,6 +62,7 @@ func NewInMemoryContactRepository() *InMemoryContactRepository {
 		nextSegmentID:      1,
 		nextExclusionID:    1,
 		nextSnapshotID:     1,
+		nextMergeID:        1,
 		contacts:           make(map[uint64]*Contact),
 		contactByKey:       make(map[string]uint64),
 		addresses:          make(map[uint64]*ContactAddress),
@@ -72,6 +78,9 @@ func NewInMemoryContactRepository() *InMemoryContactRepository {
 		exclusionByKey:     make(map[string]uint64),
 		snapshots:          make(map[uint64]*AudienceSnapshot),
 		snapshotByKey:      make(map[string]uint64),
+		mergeAudits:        make(map[uint64]*storedMergeAudit),
+		mergeAuditByKey:    make(map[string]uint64),
+		mergeUndos:         make(map[string]*MergeUndoAudit),
 	}
 }
 
@@ -101,6 +110,9 @@ func (r *InMemoryContactRepository) ensureInitializedLocked() {
 	}
 	if r.nextSnapshotID == 0 {
 		r.nextSnapshotID = 1
+	}
+	if r.nextMergeID == 0 {
+		r.nextMergeID = 1
 	}
 	if r.contacts == nil {
 		r.contacts = make(map[uint64]*Contact)
@@ -146,6 +158,15 @@ func (r *InMemoryContactRepository) ensureInitializedLocked() {
 	}
 	if r.snapshotByKey == nil {
 		r.snapshotByKey = make(map[string]uint64)
+	}
+	if r.mergeAudits == nil {
+		r.mergeAudits = make(map[uint64]*storedMergeAudit)
+	}
+	if r.mergeAuditByKey == nil {
+		r.mergeAuditByKey = make(map[string]uint64)
+	}
+	if r.mergeUndos == nil {
+		r.mergeUndos = make(map[string]*MergeUndoAudit)
 	}
 }
 
@@ -719,6 +740,141 @@ func (r *InMemoryContactRepository) IsAddressSendable(ctx context.Context, tenan
 		}
 	}
 	return address.Consent.State == ConsentStateOptedIn, nil
+}
+
+// MergeContact atomically applies an explicitly confirmed merge. The
+// repository recomputes the preview token while holding its write lock, so a
+// concurrent address/contact change can only fail safely with ErrConflict.
+func (r *InMemoryContactRepository) MergeContact(ctx context.Context, tenantID string, request MergeRequest) (*MergeAudit, error) {
+	if err := repositoryContextError(ctx); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(tenantID) == "" || strings.TrimSpace(request.ConfirmationToken) == "" {
+		return nil, ErrInvalid
+	}
+	if !request.Confirmed {
+		return nil, ErrMergeConfirmationRequired
+	}
+	if err := validateMergeRequestIDs(request); err != nil {
+		return nil, err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ensureInitializedLocked()
+	sourceID, sourceOK := r.contactByKey[scopedKey(tenantID, request.SourceContactPublicID)]
+	targetID, targetOK := r.contactByKey[scopedKey(tenantID, request.TargetContactPublicID)]
+	source, sourceExists := r.contacts[sourceID]
+	target, targetExists := r.contacts[targetID]
+	if !sourceOK || !targetOK || !sourceExists || !targetExists || source.DeletedAt != nil || target.DeletedAt != nil {
+		return nil, ErrContactNotFound
+	}
+	sourceAddresses := r.activeAddressesLocked(tenantID, source.ID)
+	targetAddresses := r.activeAddressesLocked(tenantID, target.ID)
+	preview := newMergePreview(tenantID, source, target, sourceAddresses, targetAddresses)
+	if request.ConfirmationToken != preview.ConfirmationToken {
+		return nil, ErrConflict
+	}
+	if !preview.CanMerge {
+		return nil, ErrConflict
+	}
+	now := time.Now().UTC()
+	audit := &MergeAudit{ID: fmt.Sprintf("merge-%d", r.nextMergeID), TenantID: tenantID, SourceContactID: source.ID, SourceContactPublicID: source.PublicID, TargetContactID: target.ID, TargetContactPublicID: target.PublicID, ConfirmationToken: request.ConfirmationToken, CreatedAt: now, Undoable: true}
+	r.nextMergeID++
+	for _, address := range sourceAddresses {
+		if address == nil {
+			continue
+		}
+		audit.Addresses = append(audit.Addresses, MergeAddressMetadata{AddressID: address.ID, ContactID: source.ID, IdentityKey: address.Identity.Key()})
+		stored := r.addresses[address.ID]
+		stored.ContactID = target.ID
+		stored.UpdatedAt = now
+	}
+	source.DeletedAt = &now
+	source.UpdatedAt = now
+	r.mergeAudits[r.nextMergeID-1] = &storedMergeAudit{audit: cloneMergeAudit(audit), addresses: append([]MergeAddressMetadata(nil), audit.Addresses...)}
+	r.mergeAuditByKey[audit.ID] = r.nextMergeID - 1
+	return cloneMergeAudit(audit), nil
+}
+
+func (r *InMemoryContactRepository) UndoContactMerge(ctx context.Context, tenantID, mergeID string) (*MergeUndoAudit, error) {
+	if err := repositoryContextError(ctx); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(tenantID) == "" || strings.TrimSpace(mergeID) == "" {
+		return nil, ErrInvalid
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ensureInitializedLocked()
+	mergeNumber, ok := r.mergeAuditByKey[mergeID]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	storedAudit := r.mergeAudits[mergeNumber]
+	if storedAudit == nil || storedAudit.audit.TenantID != tenantID {
+		return nil, ErrNotFound
+	}
+	if _, alreadyUndone := r.mergeUndos[mergeID]; alreadyUndone {
+		return nil, ErrConflict
+	}
+	source := r.contacts[storedAudit.audit.SourceContactID]
+	target := r.contacts[storedAudit.audit.TargetContactID]
+	if source == nil || target == nil || source.TenantID != tenantID || target.TenantID != tenantID || source.DeletedAt == nil || target.DeletedAt != nil {
+		return nil, ErrConflict
+	}
+	for _, metadata := range storedAudit.addresses {
+		address := r.addresses[metadata.AddressID]
+		if address == nil || address.TenantID != tenantID || address.DeletedAt != nil || address.ContactID != target.ID || address.Identity.Key() != metadata.IdentityKey {
+			return nil, ErrConflict
+		}
+	}
+	now := time.Now().UTC()
+	undo := &MergeUndoAudit{ID: fmt.Sprintf("%s-undo", mergeID), MergeID: mergeID, TenantID: tenantID, SourceContactID: source.ID, TargetContactID: target.ID, CreatedAt: now}
+	for _, metadata := range storedAudit.addresses {
+		address := r.addresses[metadata.AddressID]
+		address.ContactID = source.ID
+		address.UpdatedAt = now
+		undo.RestoredAddressIDs = append(undo.RestoredAddressIDs, address.ID)
+	}
+	source.DeletedAt = nil
+	source.UpdatedAt = now
+	r.mergeUndos[mergeID] = cloneMergeUndoAudit(undo)
+	return cloneMergeUndoAudit(undo), nil
+}
+
+func (r *InMemoryContactRepository) ListMergeAudits(ctx context.Context, tenantID string) ([]*MergeAudit, error) {
+	if err := repositoryContextError(ctx); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(tenantID) == "" {
+		return nil, ErrInvalid
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]*MergeAudit, 0)
+	for id := uint64(1); id < r.nextMergeID; id++ {
+		stored := r.mergeAudits[id]
+		if stored == nil || stored.audit.TenantID != tenantID {
+			continue
+		}
+		audit := cloneMergeAudit(stored.audit)
+		_, audit.Undone = r.mergeUndos[audit.ID]
+		audit.Undoable = !audit.Undone
+		result = append(result, audit)
+	}
+	return result, nil
+}
+
+func (r *InMemoryContactRepository) activeAddressesLocked(tenantID string, contactID uint64) []*ContactAddress {
+	addresses := make([]*ContactAddress, 0)
+	for id := uint64(1); id < r.nextAddressID; id++ {
+		address := r.addresses[id]
+		if address != nil && address.TenantID == tenantID && address.ContactID == contactID && address.DeletedAt == nil {
+			addresses = append(addresses, cloneContactAddress(address))
+		}
+	}
+	sort.Slice(addresses, func(i, j int) bool { return addresses[i].ID < addresses[j].ID })
+	return addresses
 }
 
 func (r *InMemoryContactRepository) appendConsentEventLocked(address *ContactAddress, metadata ConsentMetadata, recordedAt time.Time) {

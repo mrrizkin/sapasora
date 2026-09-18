@@ -704,14 +704,14 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 
 ## P5.6 Duplicate and identity
 
-- [ ] Definisikan duplicate matching rules.
-- [ ] Tampilkan duplicate candidates.
-- [ ] Implementasikan merge preview.
-- [ ] Implementasikan merge contact.
-- [ ] Simpan merge audit.
-- [ ] Implementasikan undo bila policy memungkinkan.
+- [x] Definisikan duplicate matching rules.
+- [x] Tampilkan duplicate candidates.
+- [x] Implementasikan merge preview.
+- [x] Implementasikan merge contact.
+- [x] Simpan merge audit.
+- [x] Implementasikan undo bila policy memungkinkan.
 - [ ] Link identity lintas channel dengan confirmation.
-- [ ] Cegah accidental cross-contact merge.
+- [x] Cegah accidental cross-contact merge.
 
 ---
 
