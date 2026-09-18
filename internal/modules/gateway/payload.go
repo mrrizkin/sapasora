@@ -64,7 +64,8 @@ type GetStatusResponse struct {
 } // @name whatsapp.GetStatusResponse
 
 type GetUserRequest struct {
-	Phone []string `json:"phone"`
+	Phone    []string `json:"phone"`
+	Username []string `json:"username"`
 } // @name whatsapp.GetUserRequest
 
 type VerifiedName struct {
@@ -93,10 +94,11 @@ type ContextInfo struct {
 } // @name whatsapp.ContextInfo
 
 type SendAudioRequest struct {
-	Phone   string `json:"phone"`
-	Audio   string `json:"audio"`
-	Caption string `json:"caption"`
-	ID      string `json:"id"`
+	Phone    string `json:"phone"`
+	Username string `json:"username"`
+	Audio    string `json:"audio"`
+	Caption  string `json:"caption"`
+	ID       string `json:"id"`
 
 	ContextInfo ContextInfo `json:"context_info"`
 } // @name whatsapp.SendAudioRequest

@@ -100,16 +100,16 @@
 
 ## T0.5 Perbaiki provider dispatch gateway
 
-- [ ] Buat satu resolver adapter berdasarkan `DeviceType`/channel type.
-- [ ] Pastikan `GetContacts` dispatch Telegram ke Telegram adapter.
-- [ ] Pastikan `GetUser` dispatch Telegram ke Telegram adapter.
-- [ ] Pastikan `Logout` dispatch ke adapter yang benar.
-- [ ] Pastikan seluruh method send dispatch berdasarkan provider.
-- [ ] Return error capability jika provider tidak mendukung message type.
-- [ ] Hapus pemanggilan WhatsApp hard-coded dari gateway.
-- [ ] Tambahkan table-driven test untuk setiap device type dan method.
-- [ ] Tambahkan test unsupported device type.
-- [ ] Tambahkan test nil adapter/configuration.
+- [x] Buat satu resolver adapter berdasarkan `DeviceType`/channel type.
+- [x] Pastikan `GetContacts` dispatch Telegram ke Telegram adapter.
+- [x] Pastikan `GetUser` dispatch Telegram ke Telegram adapter.
+- [x] Pastikan `Logout` dispatch ke adapter yang benar.
+- [x] Pastikan seluruh method send dispatch berdasarkan provider.
+- [x] Return error capability jika provider tidak mendukung message type.
+- [x] Hapus pemanggilan WhatsApp hard-coded dari gateway.
+- [x] Tambahkan table-driven test untuk setiap device type dan method.
+- [x] Tambahkan test unsupported device type.
+- [x] Tambahkan test nil adapter/configuration.
 
 ## T0.6 Perbaiki bug dan panic WhatsApp
 
