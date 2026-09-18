@@ -450,18 +450,18 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 
 ## P4.1 Channel domain
 
-- [ ] Definisikan `ChannelAccount` model.
-- [ ] Definisikan channel type enum.
-- [ ] Definisikan provider enum.
-- [ ] Definisikan capability model.
-- [ ] Definisikan channel status state machine.
-- [ ] Definisikan connection event model.
-- [ ] Definisikan provider credential reference.
-- [ ] Definisikan provider session reference.
-- [ ] Definisikan channel quota/rate policy.
-- [ ] Tambahkan channel tenant scope.
-- [ ] Tambahkan channel public ID.
-- [ ] Tambahkan channel repository tests.
+- [x] Definisikan `ChannelAccount` model.
+- [x] Definisikan channel type enum.
+- [x] Definisikan provider enum.
+- [x] Definisikan capability model.
+- [x] Definisikan channel status state machine.
+- [x] Definisikan connection event model.
+- [x] Definisikan provider credential reference.
+- [x] Definisikan provider session reference.
+- [x] Definisikan channel quota/rate policy.
+- [x] Tambahkan channel tenant scope.
+- [x] Tambahkan channel public ID.
+- [x] Tambahkan channel repository tests.
 
 ## P4.2 Adapter contract
 

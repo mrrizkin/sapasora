@@ -77,6 +77,10 @@ type CapabilitySet struct {
 	Items    []Capability
 }
 
+// CapabilityModel is a descriptive alias for callers that prefer a
+// domain-oriented name for the immutable capability snapshot.
+type CapabilityModel = CapabilitySet
+
 // Has reports whether the capability is present.
 func (c CapabilitySet) Has(capability Capability) bool {
 	for _, item := range c.Items {
