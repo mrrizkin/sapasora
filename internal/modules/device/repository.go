@@ -163,14 +163,30 @@ func (r *DeviceRepositoryImpl) DeleteDevice(ctx context.Context, device *Device)
 	return r.db.WithContext(ctx).Delete(device).Error
 }
 
-func (r *DeviceRepositoryImpl) GetAllWhatsappDevices(ctx context.Context) ([]*Device, error) {
+// listStartupDevices returns only devices that are eligible for provider
+// startup. The schema currently has no auto_connect column, so startup must
+// not invent or infer one. Until that schema decision is made, active is the
+// explicit opt-in state and device.expired_at is the only existing device-level
+// credential/session expiry boundary; no separate provider session field exists.
+func (r *DeviceRepositoryImpl) listStartupDevices(
+	ctx context.Context,
+	deviceType DeviceType,
+) ([]*Device, error) {
 	var devices []*Device
-	err := r.db.WithContext(ctx).Where("type = ?", DeviceTypeWhatsapp).Find(&devices).Error
+	now := time.Now()
+	err := r.db.WithContext(ctx).
+		Where("m_devices.type = ?", deviceType).
+		Where("m_devices.deleted_at IS NULL").
+		Where("m_devices.status = ?", DeviceStatusActive.String()).
+		Where("m_devices.expired_at IS NULL OR m_devices.expired_at > ?", now).
+		Find(&devices).Error
 	return devices, err
 }
 
+func (r *DeviceRepositoryImpl) GetAllWhatsappDevices(ctx context.Context) ([]*Device, error) {
+	return r.listStartupDevices(ctx, DeviceTypeWhatsapp)
+}
+
 func (r *DeviceRepositoryImpl) GetAllTelegramDevices(ctx context.Context) ([]*Device, error) {
-	var devices []*Device
-	err := r.db.WithContext(ctx).Where("type = ?", DeviceTypeTelegram).Find(&devices).Error
-	return devices, err
+	return r.listStartupDevices(ctx, DeviceTypeTelegram)
 }

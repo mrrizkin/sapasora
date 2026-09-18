@@ -159,14 +159,14 @@
 ## T0.9 Startup dan lifecycle provider
 
 - [ ] Hubungkan hanya device yang `auto_connect = true`.
-- [ ] Filter status aktif.
-- [ ] Filter credential belum expired.
-- [ ] Skip soft-deleted device.
-- [ ] Tambahkan startup concurrency limit.
+- [x] Filter status aktif.
+- [x] Filter credential belum expired.
+- [x] Skip soft-deleted device.
+- [x] Tambahkan startup concurrency limit.
 - [ ] Tambahkan per-device reconnect backoff.
-- [ ] Jangan block seluruh startup karena satu provider gagal.
-- [ ] Simpan last startup error.
-- [ ] Tambahkan graceful stop hook untuk semua provider.
+- [x] Jangan block seluruh startup karena satu provider gagal.
+- [x] Simpan last startup error.
+- [x] Tambahkan graceful stop hook untuk semua provider.
 - [ ] Pastikan `IsConnected` benar-benar merepresentasikan state provider.
 - [ ] Selaraskan status dan JID/device identity.
 - [ ] Tambahkan provider lifecycle metrics.

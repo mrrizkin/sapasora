@@ -2,6 +2,7 @@ package device
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -182,6 +183,49 @@ func TestGetDeviceByTokenAcceptsOnlyActiveUnexpiredOwnedDevice(t *testing.T) {
 			require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 		})
 	}
+}
+
+func TestStartupDeviceQueriesFilterEligibility(t *testing.T) {
+	repository, db := newDeviceTokenRepositoryTest(t)
+	future := time.Now().Add(time.Hour)
+	past := time.Now().Add(-time.Hour)
+
+	fixtures := []struct {
+		id         int
+		deviceType string
+		status     string
+		expiredAt  any
+		deletedAt  any
+	}{
+		{1, "whatsapp", "active", nil, nil},
+		{2, "whatsapp", "active", future, nil},
+		{3, "whatsapp", "inactive", nil, nil},
+		{4, "whatsapp", "connected", nil, nil},
+		{5, "whatsapp", "active", past, nil},
+		{6, "whatsapp", "active", nil, time.Now()},
+		{7, "telegram", "active", nil, nil},
+	}
+	for _, fixture := range fixtures {
+		require.NoError(t, db.Exec(`
+			INSERT INTO m_devices (id, public_id, name, type, status, expired_at, deleted_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, fixture.id, fixtureName(fixture.id), fixtureName(fixture.id), fixture.deviceType,
+			fixture.status, fixture.expiredAt, fixture.deletedAt).Error)
+	}
+
+	whatsappDevices, err := repository.GetAllWhatsappDevices(context.Background())
+	require.NoError(t, err)
+	require.Len(t, whatsappDevices, 2)
+	require.ElementsMatch(t, []uint{1, 2}, []uint{whatsappDevices[0].ID, whatsappDevices[1].ID})
+
+	telegramDevices, err := repository.GetAllTelegramDevices(context.Background())
+	require.NoError(t, err)
+	require.Len(t, telegramDevices, 1)
+	require.Equal(t, uint(7), telegramDevices[0].ID)
+}
+
+func fixtureName(id int) string {
+	return "device-" + strconv.Itoa(id)
 }
 
 func TestGetDeviceByTokenForUserEnforcesCallerOwnerScope(t *testing.T) {

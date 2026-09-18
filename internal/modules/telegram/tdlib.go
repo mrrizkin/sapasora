@@ -2,14 +2,19 @@ package telegram
 
 import (
 	"context"
+	"encoding/base64"
 	"sapasora/internal/modules/device"
+	"sapasora/internal/modules/providerstartup"
 	"sapasora/platform/config"
 	"sapasora/platform/logger"
-	"encoding/base64"
+	"sync"
 	"time"
 
 	"github.com/skip2/go-qrcode"
+	"go.uber.org/fx"
 )
+
+const startupConcurrency = 4
 
 type TDLib struct {
 	clientStore *Store[*Client]
@@ -17,34 +22,73 @@ type TDLib struct {
 	config      config.Config
 
 	deviceService device.DeviceService
+
+	startupMu        sync.RWMutex
+	lastStartupError error
+	startupWG        sync.WaitGroup
+	stopStartup      context.CancelFunc
 }
 
 // NewTDLib creates a new TDLib instance
 // @wired:provide
-func NewTDLib(log *logger.Logger, cfg config.Config, deviceService device.DeviceService) *TDLib {
-	return &TDLib{
+func NewTDLib(
+	log *logger.Logger,
+	cfg config.Config,
+	deviceService device.DeviceService,
+	lc fx.Lifecycle,
+) *TDLib {
+	runCtx, cancel := context.WithCancel(context.Background())
+	t := &TDLib{
 		clientStore: NewStore[*Client](),
 		log:         log,
 		config:      cfg,
 
 		deviceService: deviceService,
+		stopStartup:   cancel,
 	}
+
+	lc.Append(fx.Hook{
+		OnStart: func(context.Context) error {
+			t.startupWG.Add(1)
+			go func() {
+				defer t.startupWG.Done()
+				t.ConnectDevices(runCtx)
+			}()
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			t.stopStartup()
+			t.startupWG.Wait()
+			return t.Stop(ctx)
+		},
+	})
+
+	return t
 }
 
 // ConnectDevices to TDLib on server startup if last state was connected
 func (t *TDLib) ConnectDevices(ctx context.Context) {
 	devices, err := t.deviceService.GetAllTelegramDevices(ctx)
 	if err != nil {
-		t.log.Error("Failed to get devices", "error", err)
+		t.recordStartupError(nil, err)
 		return
 	}
 
-	for _, device := range devices {
-		t.Connect(ctx, device)
-	}
+	providerstartup.Run(ctx, devices, startupConcurrency,
+		func(ctx context.Context, d *device.Device) error {
+			return t.connect(ctx, d, true)
+		},
+		func(d *device.Device, err error) {
+			t.recordStartupError(d, err)
+		},
+	)
 }
 
 func (t *TDLib) Connect(ctx context.Context, device *device.Device) error {
+	return t.connect(ctx, device, false)
+}
+
+func (t *TDLib) connect(ctx context.Context, device *device.Device, waitForConnection bool) error {
 	t.log.Info("Connect to TDLib", "device", device.Name)
 
 	if client, err := t.GetClient(device.PublicID); err == nil {
@@ -59,9 +103,58 @@ func (t *TDLib) Connect(ctx context.Context, device *device.Device) error {
 
 	client := NewClient(t.config, device, t.log)
 	t.clientStore.Set(device.PublicID, client)
-	go client.Connect(t.qrHandler, 30*time.Second)
+	connect := func() error {
+		return client.Connect(t.qrHandler, 30*time.Second)
+	}
+	if waitForConnection {
+		if err := connect(); err != nil {
+			t.recordStartupError(device, err)
+			return err
+		}
+		return nil
+	}
+	go func() {
+		if err := connect(); err != nil {
+			t.recordStartupError(device, err)
+			t.log.Error("Failed to connect to TDLib", "device", device.Name, "error", err)
+		}
+	}()
 
 	return nil
+}
+
+// Stop disconnects every client that was started by this provider. A failed
+// client does not prevent the remaining clients from being stopped.
+func (t *TDLib) Stop(ctx context.Context) error {
+	var stopErr error
+	for _, client := range t.clientStore.Values() {
+		if err := client.Disconnect(ctx); err != nil {
+			if stopErr == nil {
+				stopErr = err
+			}
+			t.log.Error("Failed to stop TDLib client", "error", err)
+		}
+	}
+	return stopErr
+}
+
+// LastStartupError returns the most recent per-device startup error, if any.
+func (t *TDLib) LastStartupError() error {
+	t.startupMu.RLock()
+	defer t.startupMu.RUnlock()
+	return t.lastStartupError
+}
+
+func (t *TDLib) recordStartupError(d *device.Device, err error) {
+	if err == nil {
+		return
+	}
+	t.startupMu.Lock()
+	t.lastStartupError = err
+	t.startupMu.Unlock()
+	if d == nil {
+		t.log.Error("TDLib startup failed", "error", err)
+	}
 }
 
 // GetClient returns the TDLib client for the given device

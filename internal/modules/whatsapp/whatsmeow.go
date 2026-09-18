@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"sapasora/internal/modules/device"
+	"sapasora/internal/modules/providerstartup"
 	"sapasora/platform/config"
 	"sapasora/platform/database"
 	"sapasora/platform/logger"
@@ -21,6 +22,7 @@ import (
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
+	"go.uber.org/fx"
 )
 
 type WhatsmeowDeviceInfo struct {
@@ -41,6 +43,8 @@ func NewDeviceInfoFromDevice(device *device.Device) *WhatsmeowDeviceInfo {
 	}
 }
 
+const startupConcurrency = 4
+
 type Whatsmeow struct {
 	clientStore     *Store[*whatsmeow.Client]
 	clientHTTP      *Store[*resty.Client]
@@ -48,6 +52,13 @@ type Whatsmeow struct {
 	killchannel     *Store[(chan bool)]
 
 	lifecycleMu sync.Mutex
+	clientWG    sync.WaitGroup
+	startupWG   sync.WaitGroup
+	startupSem  chan struct{}
+	stopStartup context.CancelFunc
+
+	startupMu        sync.RWMutex
+	lastStartupError error
 
 	container *sqlstore.Container
 	log       *logger.Logger
@@ -71,6 +82,7 @@ func NewWhatsmeow(
 	config config.Config,
 
 	deviceService device.DeviceService,
+	lc fx.Lifecycle,
 ) (*Whatsmeow, error) {
 	dbConfig := database.NewConfig(config)
 
@@ -86,62 +98,156 @@ func NewWhatsmeow(
 		return nil, err
 	}
 
-	return &Whatsmeow{
+	runCtx, stopStartup := context.WithCancel(context.Background())
+	w := &Whatsmeow{
 		clientStore:     NewStore[*whatsmeow.Client](),
 		clientHTTP:      NewStore[*resty.Client](),
 		deviceInfoStore: NewStore[*WhatsmeowDeviceInfo](),
 		killchannel:     NewStore[(chan bool)](),
+		startupSem:      make(chan struct{}, startupConcurrency),
 
 		container: container,
 		log:       logger.Scope("whatsmeow"),
 
 		deviceService: deviceService,
-	}, nil
+		stopStartup:   stopStartup,
+	}
+
+	lc.Append(fx.Hook{
+		OnStart: func(context.Context) error {
+			w.startupWG.Add(1)
+			go func() {
+				defer w.startupWG.Done()
+				w.ConnectDevices(runCtx)
+			}()
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			w.stopStartup()
+			w.startupWG.Wait()
+			return w.Stop(ctx)
+		},
+	})
+
+	return w, nil
 }
 
 // ConnectDevices to Whatsmeow Websocket on server startup if last state was connected
 func (w *Whatsmeow) ConnectDevices(ctx context.Context) {
 	devices, err := w.deviceService.GetAllWhatsappDevices(ctx)
 	if err != nil {
-		w.log.Error("Failed to get devices", "error", err)
+		w.recordStartupError("", err)
 		return
 	}
 
-	for _, device := range devices {
-		w.log.Info("Connect to Whatsmeow on startup", "device", device.Name)
+	providerstartup.Run(ctx, devices, startupConcurrency,
+		func(ctx context.Context, d *device.Device) error {
+			w.log.Info("Connect to Whatsmeow on startup", "device", d.Name)
 
-		deviceInfo := NewDeviceInfoFromDevice(device)
-		w.deviceInfoStore.Set(device.PublicID, deviceInfo)
+			deviceInfo := NewDeviceInfoFromDevice(d)
+			w.deviceInfoStore.Set(d.PublicID, deviceInfo)
 
-		// Gets and set subscription to webhook events
-		var events []string
-		if deviceInfo.Events.Valid {
-			events = strings.Split(deviceInfo.Events.String, ",")
-		}
-
-		var subscribedEvents []string
-		if len(events) > 0 {
-			for _, event := range events {
-				if !slices.Contains(MessageTypes, event) {
-					w.log.Warn("Message type discarded", "device", deviceInfo.Name, "type", event)
-					continue
-				}
-				if !slices.Contains(subscribedEvents, event) {
-					subscribedEvents = append(subscribedEvents, event)
-				}
+			// Gets and set subscription to webhook events.
+			var events []string
+			if deviceInfo.Events.Valid {
+				events = strings.Split(deviceInfo.Events.String, ",")
 			}
-		} else {
-			subscribedEvents = append(subscribedEvents, "All")
-		}
 
-		eventstring := strings.Join(subscribedEvents, ",")
-		w.log.Info("Attempt to connect", "device", deviceInfo.Name, "events", eventstring)
-		w.NewKillChannel(deviceInfo.ID)
-		go w.StartClient(ctx, deviceInfo, subscribedEvents)
+			var subscribedEvents []string
+			if len(events) > 0 {
+				for _, event := range events {
+					if !slices.Contains(MessageTypes, event) {
+						w.log.Warn("Message type discarded", "device", deviceInfo.Name, "type", event)
+						continue
+					}
+					if !slices.Contains(subscribedEvents, event) {
+						subscribedEvents = append(subscribedEvents, event)
+					}
+				}
+			} else {
+				subscribedEvents = append(subscribedEvents, "All")
+			}
+
+			eventstring := strings.Join(subscribedEvents, ",")
+			w.log.Info("Attempt to connect", "device", deviceInfo.Name, "events", eventstring)
+			w.NewKillChannel(deviceInfo.ID)
+			w.launchClient(ctx, deviceInfo, subscribedEvents)
+			return nil
+		},
+		func(d *device.Device, err error) {
+			w.recordStartupError(d.PublicID, err)
+		},
+	)
+}
+
+// Stop signals all active Whatsmeow clients and waits for their run loops to
+// finish. A client that does not stop before the lifecycle deadline returns the
+// context error without preventing the process from exiting.
+func (w *Whatsmeow) Stop(ctx context.Context) error {
+	for _, client := range w.clientStore.Values() {
+		if client != nil {
+			client.Disconnect()
+		}
+	}
+	for _, deviceID := range w.killchannel.Keys() {
+		w.SendKillChannel(deviceID)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		w.clientWG.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// LastStartupError returns the most recent per-device startup error, if any.
+func (w *Whatsmeow) LastStartupError() error {
+	w.startupMu.RLock()
+	defer w.startupMu.RUnlock()
+	return w.lastStartupError
+}
+
+func (w *Whatsmeow) recordStartupError(deviceID string, err error) {
+	if err == nil {
+		return
+	}
+	w.startupMu.Lock()
+	w.lastStartupError = err
+	w.startupMu.Unlock()
+	if deviceID == "" {
+		w.log.Error("Whatsmeow startup failed", "error", err)
 	}
 }
 
 func (w *Whatsmeow) StartClient(
+	ctx context.Context,
+	deviceInfo *WhatsmeowDeviceInfo,
+	subscriptions []string,
+) {
+	w.clientWG.Add(1)
+	defer w.clientWG.Done()
+	w.startClient(ctx, deviceInfo, subscriptions)
+}
+
+func (w *Whatsmeow) launchClient(
+	ctx context.Context,
+	deviceInfo *WhatsmeowDeviceInfo,
+	subscriptions []string,
+) {
+	w.clientWG.Add(1)
+	go func() {
+		defer w.clientWG.Done()
+		w.startClient(ctx, deviceInfo, subscriptions)
+	}()
+}
+
+func (w *Whatsmeow) startClient(
 	ctx context.Context,
 	deviceInfo *WhatsmeowDeviceInfo,
 	subscriptions []string,
@@ -163,6 +269,8 @@ func (w *Whatsmeow) StartClient(
 	// replaces the channel, so an older attempt must not start listening on the new one.
 	killchannel, ok := w.killchannel.Get(deviceInfo.ID)
 	if !ok || killchannel == nil {
+		err := errors.New("kill channel not found")
+		w.recordStartupError(deviceInfo.ID, err)
 		w.log.Error("Kill channel not found", "device", deviceInfo.Name)
 		return
 	}
@@ -177,6 +285,7 @@ func (w *Whatsmeow) StartClient(
 			deviceStore, err = w.container.GetDevice(deviceCtx, jid)
 			cancel()
 			if err != nil {
+				w.recordStartupError(deviceInfo.ID, err)
 				w.log.Error("Failed to load WhatsApp device store", "device", deviceInfo.Name, "error", err)
 				return
 			}
@@ -239,8 +348,9 @@ func (w *Whatsmeow) StartClient(
 			}
 		} else {
 			go func() {
-				connectErr := connectWithTimeout(ctx, whatsmeowClient)
+				connectErr := w.connectWithStartupSlot(ctx, whatsmeowClient)
 				if connectErr != nil {
+					w.recordStartupError(deviceInfo.ID, connectErr)
 					w.log.Error("Failed to connect to WhatsMeow", "device", deviceInfo.Name, "error", connectErr)
 					return
 				}
@@ -279,8 +389,9 @@ func (w *Whatsmeow) StartClient(
 	} else {
 		// Already logged in, just connect
 		w.log.Info("Already logged in, just connect", "device", deviceInfo.Name)
-		err = connectWithTimeout(ctx, whatsmeowClient)
+		err = w.connectWithStartupSlot(ctx, whatsmeowClient)
 		if err != nil {
+			w.recordStartupError(deviceInfo.ID, err)
 			w.log.Error("Failed to connect to WhatsMeow", "device", deviceInfo.Name, "error", err)
 			return
 		}
@@ -307,6 +418,22 @@ func (w *Whatsmeow) StartClient(
 		default:
 			time.Sleep(1000 * time.Millisecond)
 		}
+	}
+}
+
+func (w *Whatsmeow) connectWithStartupSlot(
+	ctx context.Context,
+	client *whatsmeow.Client,
+) error {
+	if w.startupSem == nil {
+		return connectWithTimeout(ctx, client)
+	}
+	select {
+	case w.startupSem <- struct{}{}:
+		defer func() { <-w.startupSem }()
+		return connectWithTimeout(ctx, client)
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 

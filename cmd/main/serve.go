@@ -2,16 +2,14 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"os/signal"
 	"sapasora/internal/app"
-	"sapasora/internal/modules/telegram"
-	"sapasora/internal/modules/whatsapp"
 	"sapasora/platform/config"
 	"sapasora/platform/logger"
 	"sapasora/platform/scheduler"
 	"sapasora/platform/server"
-	"fmt"
-	"os"
-	"os/signal"
 	"syscall"
 	"time"
 
@@ -30,8 +28,6 @@ func serve() {
 			log *logger.Logger,
 			cfg config.Config,
 			cron *scheduler.CRON,
-			whatsmeow *whatsapp.Whatsmeow,
-			tdlib *telegram.TDLib,
 		) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -39,9 +35,6 @@ func serve() {
 			g, gCtx := errgroup.WithContext(ctx)
 
 			cron.Start()
-			whatsmeow.ConnectDevices(gCtx)
-			tdlib.ConnectDevices(gCtx)
-
 			quit := make(chan os.Signal, 1)
 			signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 

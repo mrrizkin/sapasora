@@ -650,7 +650,7 @@ Device inactive, expired, atau yang seharusnya tidak auto-connect dapat dibuat a
 
 ### Rekomendasi
 
-Tambahkan `auto_connect`, validasi status/expiry, dan state machine koneksi yang jelas.
+Schema saat ini belum memiliki kolom `auto_connect`, sehingga implementasi startup tidak mengarang atau mengasumsikan flag tersebut. Untuk subset T0.9 yang aman, query startup hanya memakai status `active`, `deleted_at IS NULL`, dan `expired_at` device yang belum lewat. Penambahan `auto_connect`/credential-session terpisah tetap menjadi blocker schema dan harus menunggu keputusan model + migration yang eksplisit.
 
 ---
 
