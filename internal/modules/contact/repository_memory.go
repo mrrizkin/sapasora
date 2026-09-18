@@ -17,13 +17,17 @@ import (
 type InMemoryContactRepository struct {
 	mu sync.RWMutex
 
-	nextContactID uint64
-	nextAddressID uint64
-	contacts      map[uint64]*Contact
-	contactByKey  map[string]uint64
-	addresses     map[uint64]*ContactAddress
-	addressByKey  map[string]uint64
-	identityIndex map[string]uint64
+	nextContactID      uint64
+	nextAddressID      uint64
+	nextConsentEventID uint64
+	nextSuppressionID  uint64
+	contacts           map[uint64]*Contact
+	contactByKey       map[string]uint64
+	addresses          map[uint64]*ContactAddress
+	addressByKey       map[string]uint64
+	identityIndex      map[string]uint64
+	consentEvents      map[uint64][]*ConsentEvent
+	suppressions       map[uint64]*SuppressionRecord
 }
 
 var _ ContactRepository = (*InMemoryContactRepository)(nil)
@@ -33,13 +37,17 @@ type InMemoryRepository = InMemoryContactRepository
 
 func NewInMemoryContactRepository() *InMemoryContactRepository {
 	return &InMemoryContactRepository{
-		nextContactID: 1,
-		nextAddressID: 1,
-		contacts:      make(map[uint64]*Contact),
-		contactByKey:  make(map[string]uint64),
-		addresses:     make(map[uint64]*ContactAddress),
-		addressByKey:  make(map[string]uint64),
-		identityIndex: make(map[string]uint64),
+		nextContactID:      1,
+		nextAddressID:      1,
+		nextConsentEventID: 1,
+		nextSuppressionID:  1,
+		contacts:           make(map[uint64]*Contact),
+		contactByKey:       make(map[string]uint64),
+		addresses:          make(map[uint64]*ContactAddress),
+		addressByKey:       make(map[string]uint64),
+		identityIndex:      make(map[string]uint64),
+		consentEvents:      make(map[uint64][]*ConsentEvent),
+		suppressions:       make(map[uint64]*SuppressionRecord),
 	}
 }
 
@@ -51,6 +59,12 @@ func (r *InMemoryContactRepository) ensureInitializedLocked() {
 	}
 	if r.nextAddressID == 0 {
 		r.nextAddressID = 1
+	}
+	if r.nextConsentEventID == 0 {
+		r.nextConsentEventID = 1
+	}
+	if r.nextSuppressionID == 0 {
+		r.nextSuppressionID = 1
 	}
 	if r.contacts == nil {
 		r.contacts = make(map[uint64]*Contact)
@@ -66,6 +80,12 @@ func (r *InMemoryContactRepository) ensureInitializedLocked() {
 	}
 	if r.identityIndex == nil {
 		r.identityIndex = make(map[string]uint64)
+	}
+	if r.consentEvents == nil {
+		r.consentEvents = make(map[uint64][]*ConsentEvent)
+	}
+	if r.suppressions == nil {
+		r.suppressions = make(map[uint64]*SuppressionRecord)
 	}
 }
 
@@ -291,6 +311,19 @@ func (r *InMemoryContactRepository) CreateContactAddress(ctx context.Context, ad
 	}
 	candidate.ID = r.nextAddressID
 	r.nextAddressID++
+	if candidate.Consent.State != ConsentStateUnknown {
+		if candidate.Consent.Source == ConsentSourceUnknown {
+			candidate.Consent.Source = ConsentSourceManual
+		}
+		if candidate.Consent.OccurredAt == nil {
+			occurredAt := candidate.CreatedAt
+			candidate.Consent.OccurredAt = &occurredAt
+		}
+		r.appendConsentEventLocked(candidate, candidate.Consent, candidate.UpdatedAt)
+		if candidate.Consent.State == ConsentStateOptedOut {
+			r.upsertSuppressionLocked(candidate, SuppressionReasonOptOut, candidate.Consent.Source, candidate.Consent.OccurredAt, candidate.Consent.EvidenceRef, candidate.Consent.ActorID, candidate.UpdatedAt)
+		}
+	}
 	r.addresses[candidate.ID] = candidate
 	r.addressByKey[publicKey] = candidate.ID
 	r.identityIndex[identityKey] = candidate.ID
@@ -396,6 +429,9 @@ func (r *InMemoryContactRepository) UpdateContactAddress(ctx context.Context, ad
 	if stored.PublicID != candidate.PublicID || stored.ContactID != candidate.ContactID {
 		return ErrContactAddressConflict
 	}
+	if !consentMetadataEqual(candidate.Consent, stored.Consent) {
+		return ErrContactAddressConflict
+	}
 	contact, ok := r.contacts[candidate.ContactID]
 	if !ok || contact.TenantID != candidate.TenantID || contact.DeletedAt != nil {
 		return ErrContactNotFound
@@ -434,6 +470,233 @@ func (r *InMemoryContactRepository) DeleteContactAddress(ctx context.Context, te
 	address.UpdatedAt = now
 	delete(r.identityIndex, tenantIdentityKey(tenantID, address.Identity))
 	return nil
+}
+
+func (r *InMemoryContactRepository) TransitionContactAddressConsent(ctx context.Context, tenantID string, addressID uint64, transition ConsentTransition) (*ConsentEvent, error) {
+	if err := repositoryContextError(ctx); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(tenantID) == "" || addressID == 0 {
+		return nil, fmt.Errorf("%w: tenant and address are required", ErrInvalid)
+	}
+	if transition.State != ConsentStateOptedIn && transition.State != ConsentStateOptedOut {
+		return nil, fmt.Errorf("%w: consent transition state is required", ErrInvalid)
+	}
+	if err := transition.Valid(); err != nil || transition.Source == ConsentSourceUnknown {
+		return nil, fmt.Errorf("%w: invalid consent transition", ErrInvalid)
+	}
+	occurredAt := time.Now().UTC()
+	if transition.OccurredAt != nil {
+		if transition.OccurredAt.IsZero() {
+			return nil, fmt.Errorf("%w: consent timestamp is invalid", ErrInvalid)
+		}
+		occurredAt = transition.OccurredAt.UTC()
+	}
+	transition.OccurredAt = &occurredAt
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ensureInitializedLocked()
+	address, ok := r.addresses[addressID]
+	if !ok || address.TenantID != tenantID || address.DeletedAt != nil {
+		return nil, ErrContactAddressNotFound
+	}
+	if address.Consent.OccurredAt != nil && occurredAt.Before(address.Consent.OccurredAt.UTC()) {
+		return nil, fmt.Errorf("%w: consent transition is older than current state", ErrConflict)
+	}
+	recordedAt := time.Now().UTC()
+	event := &ConsentEvent{
+		ID:         r.nextConsentEventID,
+		TenantID:   tenantID,
+		AddressID:  addressID,
+		Sequence:   uint64(len(r.consentEvents[addressID]) + 1),
+		State:      transition.State,
+		Metadata:   cloneConsentMetadata(transition),
+		RecordedAt: recordedAt,
+	}
+	r.nextConsentEventID++
+	r.consentEvents[addressID] = append(r.consentEvents[addressID], event)
+	address.Consent = cloneConsentMetadata(transition)
+	address.UpdatedAt = recordedAt
+	if transition.State == ConsentStateOptedOut {
+		r.upsertSuppressionLocked(address, SuppressionReasonOptOut, transition.Source, transition.OccurredAt, transition.EvidenceRef, transition.ActorID, recordedAt)
+	} else {
+		r.resolveSuppressionLocked(tenantID, address.Identity, SuppressionReasonOptOut, recordedAt)
+	}
+	return cloneConsentEvent(event), nil
+}
+
+func (r *InMemoryContactRepository) ListConsentEvents(ctx context.Context, tenantID string, addressID uint64) ([]*ConsentEvent, error) {
+	if err := repositoryContextError(ctx); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(tenantID) == "" || addressID == 0 {
+		return nil, fmt.Errorf("%w: tenant and address are required", ErrInvalid)
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	address, ok := r.addresses[addressID]
+	if !ok || address.TenantID != tenantID || address.DeletedAt != nil {
+		return nil, ErrContactAddressNotFound
+	}
+	events := r.consentEvents[addressID]
+	result := make([]*ConsentEvent, 0, len(events))
+	for _, event := range events {
+		result = append(result, cloneConsentEvent(event))
+	}
+	return result, nil
+}
+
+func (r *InMemoryContactRepository) CreateSuppression(ctx context.Context, suppression *SuppressionRecord) error {
+	if err := repositoryContextError(ctx); err != nil {
+		return err
+	}
+	if suppression == nil {
+		return fmt.Errorf("%w: suppression is nil", ErrInvalid)
+	}
+	candidate := cloneSuppression(suppression)
+	identity, err := NormalizeAddress(candidate.Identity.Kind, candidate.Identity.Namespace, candidate.Identity.Value)
+	if err != nil {
+		return fmt.Errorf("%w: invalid suppression identity", ErrInvalid)
+	}
+	candidate.Identity = identity
+	if candidate.Source == ConsentSourceUnknown {
+		candidate.Source = ConsentSourceManual
+	}
+	if candidate.OccurredAt == nil {
+		now := time.Now().UTC()
+		candidate.OccurredAt = &now
+	}
+	if candidate.CreatedAt.IsZero() {
+		candidate.CreatedAt = time.Now().UTC()
+	}
+	if err := candidate.Valid(); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ensureInitializedLocked()
+	addressID, ok := r.identityIndex[tenantIdentityKey(candidate.TenantID, candidate.Identity)]
+	address, addressExists := r.addresses[addressID]
+	if !ok || !addressExists || address.DeletedAt != nil {
+		return ErrContactAddressNotFound
+	}
+	for id := uint64(1); id < r.nextSuppressionID; id++ {
+		existing := r.suppressions[id]
+		if existing != nil && existing.TenantID == candidate.TenantID && existing.Identity == candidate.Identity && existing.Reason == candidate.Reason && existing.Active() {
+			*suppression = *cloneSuppression(existing)
+			return nil
+		}
+	}
+	candidate.ID = r.nextSuppressionID
+	r.nextSuppressionID++
+	r.suppressions[candidate.ID] = candidate
+	*suppression = *cloneSuppression(candidate)
+	return nil
+}
+
+func (r *InMemoryContactRepository) ListSuppressions(ctx context.Context, tenantID string, identity AddressIdentity) ([]*SuppressionRecord, error) {
+	if err := repositoryContextError(ctx); err != nil {
+		return nil, err
+	}
+	canonical, err := NormalizeAddress(identity.Kind, identity.Namespace, identity.Value)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid suppression identity", ErrInvalid)
+	}
+	if strings.TrimSpace(tenantID) == "" {
+		return nil, fmt.Errorf("%w: tenant id is required", ErrInvalid)
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]*SuppressionRecord, 0)
+	for id := uint64(1); id < r.nextSuppressionID; id++ {
+		suppression := r.suppressions[id]
+		if suppression != nil && suppression.TenantID == tenantID && suppression.Identity == canonical {
+			result = append(result, cloneSuppression(suppression))
+		}
+	}
+	return result, nil
+}
+
+func (r *InMemoryContactRepository) ResolveSuppression(ctx context.Context, tenantID string, identity AddressIdentity, reason SuppressionReason) error {
+	if err := repositoryContextError(ctx); err != nil {
+		return err
+	}
+	canonical, err := NormalizeAddress(identity.Kind, identity.Namespace, identity.Value)
+	if err != nil || !reason.Valid() {
+		return fmt.Errorf("%w: invalid suppression", ErrInvalid)
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.resolveSuppressionLocked(tenantID, canonical, reason, time.Now().UTC()) {
+		return ErrContactAddressNotFound
+	}
+	return nil
+}
+
+func (r *InMemoryContactRepository) IsAddressSendable(ctx context.Context, tenantID string, identity AddressIdentity) (bool, error) {
+	if err := repositoryContextError(ctx); err != nil {
+		return false, err
+	}
+	canonical, err := NormalizeAddress(identity.Kind, identity.Namespace, identity.Value)
+	if err != nil {
+		return false, fmt.Errorf("%w: invalid address identity", ErrInvalid)
+	}
+	if strings.TrimSpace(tenantID) == "" {
+		return false, fmt.Errorf("%w: tenant id is required", ErrInvalid)
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	addressID, ok := r.identityIndex[tenantIdentityKey(tenantID, canonical)]
+	address, addressExists := r.addresses[addressID]
+	if !ok || !addressExists || address.DeletedAt != nil {
+		return false, ErrContactAddressNotFound
+	}
+	for _, suppression := range r.suppressions {
+		if suppression.TenantID == tenantID && suppression.Identity == canonical && suppression.Active() {
+			return false, nil
+		}
+	}
+	return address.Consent.State == ConsentStateOptedIn, nil
+}
+
+func (r *InMemoryContactRepository) appendConsentEventLocked(address *ContactAddress, metadata ConsentMetadata, recordedAt time.Time) {
+	event := &ConsentEvent{
+		ID:         r.nextConsentEventID,
+		TenantID:   address.TenantID,
+		AddressID:  address.ID,
+		Sequence:   uint64(len(r.consentEvents[address.ID]) + 1),
+		State:      metadata.State,
+		Metadata:   cloneConsentMetadata(metadata),
+		RecordedAt: recordedAt,
+	}
+	r.nextConsentEventID++
+	r.consentEvents[address.ID] = append(r.consentEvents[address.ID], event)
+}
+
+func (r *InMemoryContactRepository) upsertSuppressionLocked(address *ContactAddress, reason SuppressionReason, source ConsentSource, occurredAt *time.Time, evidenceRef, actorID string, createdAt time.Time) {
+	for id := uint64(1); id < r.nextSuppressionID; id++ {
+		existing := r.suppressions[id]
+		if existing != nil && existing.TenantID == address.TenantID && existing.Identity == address.Identity && existing.Reason == reason && existing.Active() {
+			return
+		}
+	}
+	record := &SuppressionRecord{ID: r.nextSuppressionID, TenantID: address.TenantID, Identity: address.Identity, Reason: reason, Source: source, OccurredAt: cloneTime(occurredAt), EvidenceRef: evidenceRef, ActorID: actorID, CreatedAt: createdAt}
+	r.nextSuppressionID++
+	r.suppressions[record.ID] = record
+}
+
+func (r *InMemoryContactRepository) resolveSuppressionLocked(tenantID string, identity AddressIdentity, reason SuppressionReason, resolvedAt time.Time) bool {
+	resolved := false
+	for _, suppression := range r.suppressions {
+		if suppression.TenantID == tenantID && suppression.Identity == identity && suppression.Reason == reason && suppression.Active() {
+			at := resolvedAt
+			suppression.ResolvedAt = &at
+			resolved = true
+		}
+	}
+	return resolved
 }
 
 // Short aliases make the in-memory implementation convenient in small tests.
@@ -493,12 +756,43 @@ func cloneContactAddress(address *ContactAddress) *ContactAddress {
 		return nil
 	}
 	copy := *address
-	copy.Consent = address.Consent
-	if address.Consent.OccurredAt != nil {
-		occurredAt := *address.Consent.OccurredAt
-		copy.Consent.OccurredAt = &occurredAt
-	}
+	copy.Consent = cloneConsentMetadata(address.Consent)
 	copy.DeletedAt = cloneTime(address.DeletedAt)
+	return &copy
+}
+
+func cloneConsentMetadata(metadata ConsentMetadata) ConsentMetadata {
+	metadata.OccurredAt = cloneTime(metadata.OccurredAt)
+	return metadata
+}
+
+func consentMetadataEqual(left, right ConsentMetadata) bool {
+	if left.State != right.State || left.Source != right.Source || left.EvidenceRef != right.EvidenceRef || left.ActorID != right.ActorID {
+		return false
+	}
+	if left.OccurredAt == nil || right.OccurredAt == nil {
+		return left.OccurredAt == nil && right.OccurredAt == nil
+	}
+	return left.OccurredAt.Equal(*right.OccurredAt)
+}
+
+func cloneConsentEvent(event *ConsentEvent) *ConsentEvent {
+	if event == nil {
+		return nil
+	}
+	copy := *event
+	copy.Metadata = cloneConsentMetadata(event.Metadata)
+	return &copy
+}
+
+func cloneSuppression(suppression *SuppressionRecord) *SuppressionRecord {
+	if suppression == nil {
+		return nil
+	}
+	copy := *suppression
+	copy.Identity = suppression.Identity
+	copy.OccurredAt = cloneTime(suppression.OccurredAt)
+	copy.ResolvedAt = cloneTime(suppression.ResolvedAt)
 	return &copy
 }
 

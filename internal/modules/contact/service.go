@@ -27,6 +27,17 @@ type ContactService interface {
 	ListContactAddressesByContactID(context.Context, string, uint64) ([]*ContactAddress, error)
 	UpdateContactAddress(context.Context, string, *ContactAddress) error
 	DeleteContactAddress(context.Context, string, string) error
+
+	TransitionConsent(context.Context, string, string, ConsentTransition) error
+	OptIn(context.Context, string, string, ConsentMetadata) error
+	OptOut(context.Context, string, string, ConsentMetadata) error
+	ListConsentEvents(context.Context, string, string) ([]*ConsentEvent, error)
+	SuppressAddress(context.Context, string, string, *SuppressionRecord) error
+	ListSuppressions(context.Context, string, string) ([]*SuppressionRecord, error)
+	BlockAddress(context.Context, string, string, ConsentMetadata) error
+	UnsuppressAddress(context.Context, string, string, SuppressionReason) error
+	IsAddressSendable(context.Context, string, AddressIdentity) (bool, error)
+	IsContactAddressSendable(context.Context, string, string) (bool, error)
 }
 
 // ContactUseCase is the explicit use-case name for integrations that prefer
@@ -341,6 +352,9 @@ func (s *Service) UpdateContactAddress(ctx context.Context, tenantID string, val
 	if input.ContactID == 0 {
 		input.ContactID = stored.ContactID
 	}
+	if input.Consent.State == ConsentStateUnknown && input.Consent.Source == ConsentSourceUnknown && input.Consent.OccurredAt == nil && input.Consent.EvidenceRef == "" && input.Consent.ActorID == "" {
+		input.Consent = cloneConsentMetadata(stored.Consent)
+	}
 	candidate, err := s.prepareAddressForWrite(tenantID, input)
 	if err != nil {
 		return err
@@ -375,6 +389,179 @@ func (s *Service) DeleteContactAddress(ctx context.Context, tenantID, publicID s
 		return err
 	}
 	return safeContactError(s.repository.DeleteContactAddress(ctx, tenantID, publicID))
+}
+
+func (s *Service) TransitionConsent(ctx context.Context, tenantID, addressPublicID string, transition ConsentTransition) error {
+	if err := s.ready(); err != nil {
+		return err
+	}
+	if err := validateTenant(tenantID); err != nil {
+		return err
+	}
+	if err := validatePublicID(addressPublicID); err != nil {
+		return err
+	}
+	address, err := s.repository.GetContactAddressByPublicID(ctx, tenantID, addressPublicID)
+	if err != nil {
+		return safeContactError(err)
+	}
+	if transition.Source == ConsentSourceUnknown {
+		transition.Source = ConsentSourceManual
+	}
+	if err := transition.Valid(); err != nil || transition.State == ConsentStateUnknown {
+		return fmt.Errorf("%w: invalid consent transition", ErrInvalid)
+	}
+	_, err = s.repository.TransitionContactAddressConsent(ctx, tenantID, address.ID, transition)
+	return safeContactError(err)
+}
+
+func (s *Service) OptIn(ctx context.Context, tenantID, addressPublicID string, metadata ConsentMetadata) error {
+	metadata.State = ConsentStateOptedIn
+	return s.TransitionConsent(ctx, tenantID, addressPublicID, metadata)
+}
+
+func (s *Service) OptOut(ctx context.Context, tenantID, addressPublicID string, metadata ConsentMetadata) error {
+	metadata.State = ConsentStateOptedOut
+	return s.TransitionConsent(ctx, tenantID, addressPublicID, metadata)
+}
+
+func (s *Service) ListConsentEvents(ctx context.Context, tenantID, addressPublicID string) ([]*ConsentEvent, error) {
+	if err := s.ready(); err != nil {
+		return nil, err
+	}
+	if err := validateTenant(tenantID); err != nil {
+		return nil, err
+	}
+	if err := validatePublicID(addressPublicID); err != nil {
+		return nil, err
+	}
+	address, err := s.repository.GetContactAddressByPublicID(ctx, tenantID, addressPublicID)
+	if err != nil {
+		return nil, safeContactError(err)
+	}
+	events, err := s.repository.ListConsentEvents(ctx, tenantID, address.ID)
+	if err != nil {
+		return nil, safeContactError(err)
+	}
+	return events, nil
+}
+
+func (s *Service) SuppressAddress(ctx context.Context, tenantID, addressPublicID string, value *SuppressionRecord) error {
+	if err := s.ready(); err != nil {
+		return err
+	}
+	if value == nil {
+		return fmt.Errorf("%w: suppression is nil", ErrInvalid)
+	}
+	if err := validateTenant(tenantID); err != nil {
+		return err
+	}
+	if err := validatePublicID(addressPublicID); err != nil {
+		return err
+	}
+	address, err := s.repository.GetContactAddressByPublicID(ctx, tenantID, addressPublicID)
+	if err != nil {
+		return safeContactError(err)
+	}
+	candidate := cloneSuppression(value)
+	candidate.TenantID = tenantID
+	candidate.Identity = address.Identity
+	if candidate.Source == ConsentSourceUnknown {
+		candidate.Source = ConsentSourceManual
+	}
+	if err := candidate.Valid(); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
+	if err := s.repository.CreateSuppression(ctx, candidate); err != nil {
+		return safeContactError(err)
+	}
+	*value = *cloneSuppression(candidate)
+	return nil
+}
+
+func (s *Service) ListSuppressions(ctx context.Context, tenantID, addressPublicID string) ([]*SuppressionRecord, error) {
+	if err := s.ready(); err != nil {
+		return nil, err
+	}
+	if err := validateTenant(tenantID); err != nil {
+		return nil, err
+	}
+	if err := validatePublicID(addressPublicID); err != nil {
+		return nil, err
+	}
+	address, err := s.repository.GetContactAddressByPublicID(ctx, tenantID, addressPublicID)
+	if err != nil {
+		return nil, safeContactError(err)
+	}
+	values, err := s.repository.ListSuppressions(ctx, tenantID, address.Identity)
+	if err != nil {
+		return nil, safeContactError(err)
+	}
+	return values, nil
+}
+
+func (s *Service) BlockAddress(ctx context.Context, tenantID, addressPublicID string, metadata ConsentMetadata) error {
+	if metadata.Source == ConsentSourceUnknown {
+		metadata.Source = ConsentSourceManual
+	}
+	record := &SuppressionRecord{Reason: SuppressionReasonBlocked, Source: metadata.Source, OccurredAt: cloneTime(metadata.OccurredAt), EvidenceRef: metadata.EvidenceRef, ActorID: metadata.ActorID}
+	return s.SuppressAddress(ctx, tenantID, addressPublicID, record)
+}
+
+func (s *Service) UnsuppressAddress(ctx context.Context, tenantID, addressPublicID string, reason SuppressionReason) error {
+	if err := s.ready(); err != nil {
+		return err
+	}
+	if err := validateTenant(tenantID); err != nil {
+		return err
+	}
+	if err := validatePublicID(addressPublicID); err != nil {
+		return err
+	}
+	address, err := s.repository.GetContactAddressByPublicID(ctx, tenantID, addressPublicID)
+	if err != nil {
+		return safeContactError(err)
+	}
+	return safeContactError(s.repository.ResolveSuppression(ctx, tenantID, address.Identity, reason))
+}
+
+func (s *Service) IsAddressSendable(ctx context.Context, tenantID string, identity AddressIdentity) (bool, error) {
+	if err := s.ready(); err != nil {
+		return false, err
+	}
+	if err := validateTenant(tenantID); err != nil {
+		return false, err
+	}
+	canonical, err := NormalizeAddress(identity.Kind, identity.Namespace, identity.Value)
+	if err != nil {
+		return false, fmt.Errorf("%w: invalid address identity", ErrInvalid)
+	}
+	value, err := s.repository.IsAddressSendable(ctx, tenantID, canonical)
+	if err != nil {
+		return false, safeContactError(err)
+	}
+	return value, nil
+}
+
+func (s *Service) IsContactAddressSendable(ctx context.Context, tenantID, addressPublicID string) (bool, error) {
+	if err := s.ready(); err != nil {
+		return false, err
+	}
+	if err := validateTenant(tenantID); err != nil {
+		return false, err
+	}
+	if err := validatePublicID(addressPublicID); err != nil {
+		return false, err
+	}
+	address, err := s.repository.GetContactAddressByPublicID(ctx, tenantID, addressPublicID)
+	if err != nil {
+		return false, safeContactError(err)
+	}
+	value, err := s.repository.IsAddressSendable(ctx, tenantID, address.Identity)
+	if err != nil {
+		return false, safeContactError(err)
+	}
+	return value, nil
 }
 
 func (s *Service) prepareAddressForWrite(tenantID string, value *ContactAddress) (*ContactAddress, error) {

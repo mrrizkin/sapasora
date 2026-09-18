@@ -92,6 +92,40 @@ func TestContactDiagnosticsDoNotExposePII(t *testing.T) {
 	if strings.Contains(consentDiagnostics, evidence) {
 		t.Fatalf("consent String() leaked evidence: %s", consentDiagnostics)
 	}
+	event := ConsentEvent{
+		TenantID:  "tenant-a",
+		AddressID: 1,
+		Sequence:  1,
+		State:     ConsentStateOptedIn,
+		Metadata:  ConsentMetadata{State: ConsentStateOptedIn, Source: ConsentSourceAPI, EvidenceRef: evidence, ActorID: "actor-private"},
+	}
+	suppression := SuppressionRecord{
+		TenantID:    "tenant-a",
+		Identity:    address.Identity,
+		Reason:      SuppressionReasonBlocked,
+		Source:      ConsentSourceManual,
+		EvidenceRef: evidence,
+		ActorID:     "actor-private",
+	}
+	for label, value := range map[string]string{
+		"consent event string": event.String(),
+		"suppression string":   suppression.String(),
+	} {
+		if strings.Contains(value, evidence) || strings.Contains(value, normalized) {
+			t.Fatalf("%s leaked private data: %s", label, value)
+		}
+	}
+	encodedEvent, err := json.Marshal(event)
+	if err != nil {
+		t.Fatalf("json.Marshal(event) error = %v", err)
+	}
+	encodedSuppression, err := json.Marshal(suppression)
+	if err != nil {
+		t.Fatalf("json.Marshal(suppression) error = %v", err)
+	}
+	if strings.Contains(string(encodedEvent)+string(encodedSuppression), evidence) || strings.Contains(string(encodedSuppression), normalized) {
+		t.Fatalf("consent/suppression JSON leaked private data: %s %s", encodedEvent, encodedSuppression)
+	}
 	encodedConsent, err := json.Marshal(address.Consent)
 	if err != nil {
 		t.Fatalf("json.Marshal(consent) error = %v", err)
