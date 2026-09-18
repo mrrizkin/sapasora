@@ -19,6 +19,19 @@ it is not a substitute for workspace isolation. A future workspace-aware
 schema must add an explicit workspace predicate and migration before claiming
 workspace-level isolation.
 
+Authentication is header-only:
+
+```http
+GET /api/v1/device/by-token
+Authorization: sk-dat-…
+```
+
+The middleware resolves the active device and stores it in
+`c.Locals("device")`; the controller never reads a token from a path, query
+parameter, or request body. The old `GET /api/v1/device/{token}/token` route is
+removed and is not accepted. Clients must migrate to the header endpoint. Do
+not put the credential in browser URLs, redirects, bookmarks, or referrers.
+
 Authentication failures are logged as a generic device-token failure without
 the raw credential or a reason that distinguishes missing, revoked, or expired
-credentials.
+credentials. API-key authentication failures use the same redaction rule.

@@ -247,69 +247,69 @@ GetForm.head = (id: string, options?: RouteQueryOptions): RouteFormDefinition<'h
   method: 'head',
 });
 /**
- * @see device/internal/app/http/controllers/device/device.go:180
- * @route /api/v1/device/:token/token
+ * @see device/internal/app/http/controllers/device/device.go:200
+ * @route /api/v1/device/by-token
  */
-export const GetDeviceByToken = (token: string, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-  url: GetDeviceByToken.url(token, options),
+export const GetDeviceByToken = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+  url: GetDeviceByToken.url(options),
   method: 'get',
 });
 
 GetDeviceByToken.definition = {
   methods: ['get', 'head'],
-  url: '/api/v1/device/:token/token',
+  url: '/api/v1/device/by-token',
 } satisfies RouteDefinition<['get', 'head']>;
 
 /**
- * @see device/internal/app/http/controllers/device/device.go:180
- * @route /api/v1/device/:token/token
+ * @see device/internal/app/http/controllers/device/device.go:200
+ * @route /api/v1/device/by-token
  */
-GetDeviceByToken.url = (token: string, options?: RouteQueryOptions) => {
-  return GetDeviceByToken.definition.url.replace(':token', encodeURIComponent(token)) + queryParams(options);
+GetDeviceByToken.url = (options?: RouteQueryOptions) => {
+  return GetDeviceByToken.definition.url + queryParams(options);
 };
 
 /**
- * @see device/internal/app/http/controllers/device/device.go:180
- * @route /api/v1/device/:token/token
+ * @see device/internal/app/http/controllers/device/device.go:200
+ * @route /api/v1/device/by-token
  */
-GetDeviceByToken.get = (token: string, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-  url: GetDeviceByToken.url(token, options),
+GetDeviceByToken.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+  url: GetDeviceByToken.url(options),
   method: 'get',
 });
 
 /**
- * @see device/internal/app/http/controllers/device/device.go:180
- * @route /api/v1/device/:token/token
+ * @see device/internal/app/http/controllers/device/device.go:200
+ * @route /api/v1/device/by-token
  */
-GetDeviceByToken.head = (token: string, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-  url: GetDeviceByToken.url(token, options),
+GetDeviceByToken.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+  url: GetDeviceByToken.url(options),
   method: 'head',
 });
 
 /**
- * @see device/internal/app/http/controllers/device/device.go:180
- * @route /api/v1/device/:token/token
+ * @see device/internal/app/http/controllers/device/device.go:200
+ * @route /api/v1/device/by-token
  */
-export const GetDeviceByTokenForm = (token: string, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-  action: GetDeviceByToken.url(token, options),
+export const GetDeviceByTokenForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+  action: GetDeviceByToken.url(options),
   method: 'get',
 });
 
 /**
- * @see device/internal/app/http/controllers/device/device.go:180
- * @route /api/v1/device/:token/token
+ * @see device/internal/app/http/controllers/device/device.go:200
+ * @route /api/v1/device/by-token
  */
-GetDeviceByTokenForm.get = (token: string, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
-  action: GetDeviceByToken.url(token, options),
+GetDeviceByTokenForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+  action: GetDeviceByToken.url(options),
   method: 'get',
 });
 
 /**
- * @see device/internal/app/http/controllers/device/device.go:180
- * @route /api/v1/device/:token/token
+ * @see device/internal/app/http/controllers/device/device.go:200
+ * @route /api/v1/device/by-token
  */
-GetDeviceByTokenForm.head = (token: string, options?: RouteQueryOptions): RouteFormDefinition<'head'> => ({
-  action: GetDeviceByToken.url(token, options),
+GetDeviceByTokenForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'head'> => ({
+  action: GetDeviceByToken.url(options),
   method: 'head',
 });
 /**

@@ -129,13 +129,18 @@
 
 ## T0.7 Credential tidak boleh bocor melalui URL
 
-- [ ] Hapus device token dari route URL `/api/v1/device/{token}/token`.
-- [ ] Ganti authentication dengan `Authorization` header.
-- [ ] Sediakan migration path untuk client lama.
-- [ ] Redact token dari access log.
-- [ ] Redact token dari error log.
-- [ ] Dokumentasikan deprecation endpoint lama.
-- [ ] Tambahkan test token tidak muncul pada URL/history/referrer.
+- [x] Hapus device token dari route URL `/api/v1/device/{token}/token`.
+- [x] Ganti authentication dengan `Authorization: sk-dat-*` header.
+- [x] Sediakan migration path melalui `GET /api/v1/device/by-token`; client lama
+  harus bermigrasi karena route lama tidak lagi diterima.
+- [x] Redact token dari access log: token tidak pernah diterima sebagai route
+  parameter dan middleware tidak mencatat credential.
+- [x] Redact token dari error log: authentication failure hanya mencatat alasan
+  generik tanpa raw credential/error mentah.
+- [x] Dokumentasikan penghapusan/deprecation endpoint lama di
+  `docs/security/device-token-authentication.md`.
+- [x] Tambahkan test bahwa endpoint hanya memakai `c.Locals("device")`, route
+  lama tidak aktif, dan credential tidak muncul pada URL/history/referrer.
 
 ## T0.8 Delete/disconnect device harus lengkap
 

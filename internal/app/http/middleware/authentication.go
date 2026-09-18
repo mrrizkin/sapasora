@@ -47,11 +47,13 @@ func (m *AuthenticationMiddleware) Handle(c *fiber.Ctx) error {
 			if err != nil {
 				// Do not log the credential or distinguish revoked/expired/missing
 				// tokens; this is an audit signal without enumeration leakage.
-				m.log.Warn(
-					"Device token authentication failed",
-					"auth_method", "device_token",
-					"reason", "invalid_or_inactive_or_expired",
-				)
+				if m.log != nil {
+					m.log.Warn(
+						"Device token authentication failed",
+						"auth_method", "device_token",
+						"reason", "invalid_or_inactive_or_expired",
+					)
+				}
 				return fiber.ErrUnauthorized
 			}
 
@@ -62,7 +64,15 @@ func (m *AuthenticationMiddleware) Handle(c *fiber.Ctx) error {
 		if strings.HasPrefix(apiKey, "sk-dak-") { // secret key sapasora access key
 			key, err := m.apikeyService.GetAPIKeyByKey(c.Context(), apiKey)
 			if err != nil {
-				m.log.Error("Failed to get apikey", "error", err)
+				// Never include the supplied credential or an error that may
+				// contain it in logs.
+				if m.log != nil {
+					m.log.Error(
+						"API key authentication failed",
+						"auth_method", "api_key",
+						"reason", "invalid_or_inactive",
+					)
+				}
 				return fiber.ErrUnauthorized
 			}
 

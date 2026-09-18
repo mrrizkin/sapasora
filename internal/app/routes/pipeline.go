@@ -80,7 +80,7 @@ func (s *API) PipeLine() []fiber.Handler {
 	return arr.List(
 		cors.New(cors.Config{
 			AllowOrigins: "*",
-			AllowHeaders: "Origin, Content-Type, Accept",
+			AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 		}),
 	)
 }

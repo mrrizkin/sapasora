@@ -598,26 +598,27 @@ Endpoint connect dengan `immediate=false` gagal atau dapat panic walaupun koneks
 
 ---
 
-### P1-08 — Credential device ditempatkan di URL path
+### P1-08 — Credential device ditempatkan di URL path — resolved by T0.7
 
 **Lokasi:**
 
 - `internal/app/routes/api.go`
 - `internal/app/http/controllers/device/device.go`
+- `internal/app/http/middleware/authentication.go`
 
-Route berikut menerima device token sebagai path parameter:
+Route lama `GET /api/v1/device/{token}/token` telah dihapus. Endpoint migrasi
+sekarang menggunakan header dan tidak menerima token dari URL:
 
-```text
-GET /api/v1/device/{token}/token
+```http
+GET /api/v1/device/by-token
+Authorization: sk-dat-…
 ```
 
-### Risiko
-
-Token dapat masuk ke access log, reverse proxy log, tracing, browser history, bookmark, dan `Referer`.
-
-### Rekomendasi
-
-Hapus route token-in-path. Gunakan `Authorization` header atau endpoint introspection yang tidak mengembalikan secret.
+Middleware memvalidasi token dan menaruh device hasil resolusi di
+`c.Locals("device")`; controller hanya mempercayai local tersebut. Dengan
+demikian credential tidak masuk ke access log, reverse proxy log, tracing,
+browser history, bookmark, atau `Referer`. Kegagalan autentikasi dicatat
+secara generik tanpa credential mentah.
 
 ---
 

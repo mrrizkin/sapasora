@@ -40,7 +40,7 @@ package main
 //	@securityDefinitions.apikey X-API-KEY
 //	@in header
 //	@name Authorization
-//	@description Provide a valid Token in the Authorization header.
+//	@description Provide a valid sk-dat-* or sk-dak-* token in the Authorization header; never put credentials in a URL.
 func main() {
 	serve()
 }
