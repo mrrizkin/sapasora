@@ -327,7 +327,7 @@ Catatan: backoff saat ini mencakup percobaan koneksi startup/manual yang gagal; 
 ## P2.5 Error and request foundation
 
 - [x] Definisikan public error code catalog.
-- [ ] Definisikan error category retryable/non-retryable.
+- [x] Definisikan error category retryable/non-retryable.
 - [x] Definisikan error envelope API.
 - [x] Sertakan request ID pada semua response.
 - [ ] Propagate request/correlation ID ke worker.
