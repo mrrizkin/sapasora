@@ -1,6 +1,86 @@
 import { type RouteDefinition, type RouteFormDefinition, type RouteQueryOptions, queryParams } from '@/js/lib/wayfinder';
 
 /**
+ * @see account/internal/app/http/controllers/account/account.go:37
+ * @route /users
+ */
+export const Index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+  url: Index.url(options),
+  method: 'get',
+});
+
+Index.definition = {
+  methods: ['get', 'head'],
+  url: '/users',
+} satisfies RouteDefinition<['get', 'head']>;
+
+/**
+ * @see account/internal/app/http/controllers/account/account.go:37
+ * @route /users
+ */
+Index.url = (options?: RouteQueryOptions) => {
+  return Index.definition.url + queryParams(options);
+};
+
+/**
+ * @see account/internal/app/http/controllers/account/account.go:37
+ * @route /users
+ */
+Index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+  url: Index.url(options),
+  method: 'get',
+});
+
+/**
+ * @see account/internal/app/http/controllers/account/account.go:37
+ * @route /users
+ */
+Index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+  url: Index.url(options),
+  method: 'head',
+});
+
+/**
+ * @see account/internal/app/http/controllers/account/account.go:63
+ * @route /users/create
+ */
+export const Create = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+  url: Create.url(options),
+  method: 'get',
+});
+
+Create.definition = {
+  methods: ['get', 'head'],
+  url: '/users/create',
+} satisfies RouteDefinition<['get', 'head']>;
+
+/**
+ * @see account/internal/app/http/controllers/account/account.go:63
+ * @route /users/create
+ */
+Create.url = (options?: RouteQueryOptions) => {
+  return Create.definition.url + queryParams(options);
+};
+
+/**
+ * @see account/internal/app/http/controllers/account/account.go:63
+ * @route /users/create
+ */
+Create.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+  url: Create.url(options),
+  method: 'get',
+});
+
+/**
+ * @see account/internal/app/http/controllers/account/account.go:63
+ * @route /users/create
+ */
+Create.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+  url: Create.url(options),
+  method: 'head',
+});
+
+/**
  * @see account/internal/app/http/controllers/account/account.go:257
  * @route /api/v1/account/:id
  */
@@ -326,6 +406,8 @@ UpdatePasswordForm.put = (id: string, options?: RouteQueryOptions): RouteFormDef
 });
 
 export const AccountController = {
+  Index: Object.assign(Index, Index),
+  Create: Object.assign(Create, Create),
   Destroy: Object.assign(Destroy, Destroy),
   Get: Object.assign(Get, Get),
   List: Object.assign(List, List),

@@ -655,7 +655,88 @@ UpdateStatusForm.put = (id: string, options?: RouteQueryOptions): RouteFormDefin
   method: 'put',
 });
 
+/**
+ * @see device/internal/app/http/controllers/device/device.go:428
+ * @route /api/v1/device/:id/connect
+ */
+export const Connect = (id: string, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+  url: Connect.url(id, options),
+  method: 'post',
+});
+
+Connect.definition = {
+  methods: ['post'],
+  url: '/api/v1/device/:id/connect',
+} satisfies RouteDefinition<['post']>;
+
+/**
+ * @see device/internal/app/http/controllers/device/device.go:428
+ * @route /api/v1/device/:id/connect
+ */
+Connect.url = (id: string, options?: RouteQueryOptions) => {
+  return Connect.definition.url.replace(':id', encodeURIComponent(id)) + queryParams(options);
+};
+
+/**
+ * @see device/internal/app/http/controllers/device/device.go:428
+ * @route /api/v1/device/:id/connect
+ */
+Connect.post = (id: string, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+  url: Connect.url(id, options),
+  method: 'post',
+});
+
+/**
+ * @see device/internal/app/http/controllers/device/device.go:428
+ * @route /api/v1/device/:id/connect
+ */
+export const ConnectForm = (id: string, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+  action: Connect.url(id, options),
+  method: 'post',
+});
+
+/**
+ * @see device/internal/app/http/controllers/device/device.go:428
+ * @route /api/v1/device/:id/connect
+ */
+ConnectForm.post = (id: string, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+  action: Connect.url(id, options),
+  method: 'post',
+});
+
+/**
+ * @see device/internal/app/http/controllers/device/device.go
+ * @route /api/v1/device/:id/send-test-message
+ */
+export const SendTestMessage = (id: string, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+  url: SendTestMessage.url(id, options),
+  method: 'post',
+});
+
+SendTestMessage.definition = {
+  methods: ['post'],
+  url: '/api/v1/device/:id/send-test-message',
+} satisfies RouteDefinition<['post']>;
+
+/**
+ * @see device/internal/app/http/controllers/device/device.go
+ * @route /api/v1/device/:id/send-test-message
+ */
+SendTestMessage.url = (id: string, options?: RouteQueryOptions) => {
+  return SendTestMessage.definition.url.replace(':id', encodeURIComponent(id)) + queryParams(options);
+};
+
+/**
+ * @see device/internal/app/http/controllers/device/device.go
+ * @route /api/v1/device/:id/send-test-message
+ */
+SendTestMessage.post = (id: string, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+  url: SendTestMessage.url(id, options),
+  method: 'post',
+});
+
 export const DeviceController = {
+  Connect: Object.assign(Connect, Connect),
   Create: Object.assign(Create, Create),
   Destroy: Object.assign(Destroy, Destroy),
   Edit: Object.assign(Edit, Edit),
@@ -663,6 +744,7 @@ export const DeviceController = {
   GetDeviceByToken: Object.assign(GetDeviceByToken, GetDeviceByToken),
   Index: Object.assign(Index, Index),
   List: Object.assign(List, List),
+  SendTestMessage: Object.assign(SendTestMessage, SendTestMessage),
   Show: Object.assign(Show, Show),
   Store: Object.assign(Store, Store),
   Update: Object.assign(Update, Update),

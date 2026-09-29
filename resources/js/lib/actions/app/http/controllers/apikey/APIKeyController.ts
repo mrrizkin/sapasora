@@ -1,6 +1,37 @@
 import { type RouteDefinition, type RouteFormDefinition, type RouteQueryOptions, queryParams } from '@/js/lib/wayfinder';
 
 /**
+ * @see apikey/internal/app/http/controllers/apikey/apikey.go
+ * @route /api-keys
+ */
+export const Index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+  url: Index.url(options),
+  method: 'get',
+});
+
+Index.definition = {
+  methods: ['get', 'head'],
+  url: '/api-keys',
+} satisfies RouteDefinition<['get', 'head']>;
+
+/**
+ * @see apikey/internal/app/http/controllers/apikey/apikey.go
+ * @route /api-keys
+ */
+Index.url = (options?: RouteQueryOptions) => {
+  return Index.definition.url + queryParams(options);
+};
+
+/**
+ * @see apikey/internal/app/http/controllers/apikey/apikey.go
+ * @route /api-keys
+ */
+Index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+  url: Index.url(options),
+  method: 'get',
+});
+
+/**
  * @see apikey/internal/app/http/controllers/apikey/apikey.go:205
  * @route /api/v1/api-key/:id
  */
@@ -280,6 +311,7 @@ UpdateForm.put = (id: string, options?: RouteQueryOptions): RouteFormDefinition<
 export const APIKeyController = {
   Destroy: Object.assign(Destroy, Destroy),
   Get: Object.assign(Get, Get),
+  Index: Object.assign(Index, Index),
   List: Object.assign(List, List),
   Store: Object.assign(Store, Store),
   Update: Object.assign(Update, Update),

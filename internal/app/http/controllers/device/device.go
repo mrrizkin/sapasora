@@ -10,6 +10,7 @@ import (
 	"sapasora/internal/modules/account"
 	devicemodule "sapasora/internal/modules/device"
 	devicelifecycle "sapasora/internal/modules/devicelifecycle"
+	"sapasora/internal/modules/gateway"
 	"sapasora/internal/modules/permission"
 	"sapasora/platform/satpam"
 	"sapasora/platform/support/hash"
@@ -25,6 +26,7 @@ type DeviceController struct {
 	accountService        account.AccountService
 	deviceService         devicemodule.DeviceService
 	deviceDeletionService devicelifecycle.DeviceDeletionService
+	gatewayService        gateway.GatewayService
 }
 
 // NewDeviceController creates a new Devicecontrollers
@@ -34,12 +36,14 @@ func NewDeviceController(
 	accountService account.AccountService,
 	deviceService devicemodule.DeviceService,
 	deviceDeletionService devicelifecycle.DeviceDeletionService,
+	gatewayService gateway.GatewayService,
 ) *DeviceController {
 	return &DeviceController{
 		Controller:            controller,
 		accountService:        accountService,
 		deviceService:         deviceService,
 		deviceDeletionService: deviceDeletionService,
+		gatewayService:        gatewayService,
 	}
 }
 
@@ -52,6 +56,11 @@ func (c *DeviceController) Index(ctx *fiber.Ctx) error {
 	}
 	gate.AuthorizeAllPermissions(subject)
 
+	ownerID, err := c.GetOwnerID(ctx, "account")
+	if err != nil {
+		return err
+	}
+
 	params, err := c.ParseListQuery(ctx)
 	if err != nil {
 		return err
@@ -60,7 +69,9 @@ func (c *DeviceController) Index(ctx *fiber.Ctx) error {
 	limit := params.Limit
 	search := params.Search
 
-	deviceList, err := c.deviceService.ListDevice(ctx.Context(), search, page, limit)
+	// Devices are private to the account/apikey that created them; two
+	// accounts sharing a role must not see each other's devices here.
+	deviceList, err := c.deviceService.ListDeviceForUser(ctx.Context(), ownerID, search, page, limit)
 	if err != nil {
 		return err
 	}
@@ -94,16 +105,22 @@ func (c *DeviceController) Show(ctx *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	device, err := c.deviceService.GetDeviceByPublicID(ctx.Context(), id)
-	if err != nil {
-		return err
-	}
 
-	gate := satpam.New(&policies.CanGetDevice{}).AddResource("device", device)
 	subject, err := c.GetSubject(ctx, "account")
 	if err != nil {
 		return err
 	}
+	ownerID, err := c.GetOwnerID(ctx, "account")
+	if err != nil {
+		return err
+	}
+
+	device, err := c.deviceService.GetDeviceByPublicIDForUser(ctx.Context(), id, ownerID)
+	if err != nil {
+		return c.OwnerLookupError(err)
+	}
+
+	gate := satpam.New(&policies.CanGetDevice{}).AddResource("device", device)
 	gate.AuthorizeAllPermissions(subject)
 
 	if device.User == nil {
@@ -125,16 +142,22 @@ func (c *DeviceController) Edit(ctx *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	device, err := c.deviceService.GetDeviceByPublicID(ctx.Context(), id)
-	if err != nil {
-		return err
-	}
 
-	gate := satpam.New(&policies.CanUpdateDevice{}).AddResource("device", device)
 	subject, err := c.GetSubject(ctx, "account")
 	if err != nil {
 		return err
 	}
+	ownerID, err := c.GetOwnerID(ctx, "account")
+	if err != nil {
+		return err
+	}
+
+	device, err := c.deviceService.GetDeviceByPublicIDForUser(ctx.Context(), id, ownerID)
+	if err != nil {
+		return c.OwnerLookupError(err)
+	}
+
+	gate := satpam.New(&policies.CanUpdateDevice{}).AddResource("device", device)
 	gate.AuthorizeAllPermissions(subject)
 
 	return c.Inertia(ctx, "device/edit", fiber.Map{
@@ -165,6 +188,11 @@ func (c *DeviceController) List(ctx *fiber.Ctx) error {
 
 	gate.AuthorizeAllPermissions(subject)
 
+	ownerID, err := c.GetOwnerID(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
+
 	params, err := c.ParseListQuery(ctx)
 	if err != nil {
 		return err
@@ -173,7 +201,8 @@ func (c *DeviceController) List(ctx *fiber.Ctx) error {
 	limit := params.Limit
 	search := params.Search
 
-	deviceList, err := c.deviceService.ListDevice(ctx.Context(), search, page, limit)
+	// Devices are private to the account/apikey that created them.
+	deviceList, err := c.deviceService.ListDeviceForUser(ctx.Context(), ownerID, search, page, limit)
 	if err != nil {
 		return err
 	}
@@ -195,12 +224,7 @@ func (c *DeviceController) Get(ctx *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	device, err := c.deviceService.GetDeviceByPublicID(ctx.Context(), id)
-	if err != nil {
-		return err
-	}
 
-	gate := satpam.New(&policies.CanGetDevice{}).AddResource("device", device)
 	subject, err := c.GetSubject(ctx, "apikey", "account")
 	if err != nil {
 		return err
@@ -209,6 +233,17 @@ func (c *DeviceController) Get(ctx *fiber.Ctx) error {
 		return fiber.ErrUnauthorized
 	}
 
+	ownerID, err := c.GetOwnerID(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
+
+	device, err := c.deviceService.GetDeviceByPublicIDForUser(ctx.Context(), id, ownerID)
+	if err != nil {
+		return c.OwnerLookupError(err)
+	}
+
+	gate := satpam.New(&policies.CanGetDevice{}).AddResource("device", device)
 	gate.AuthorizeAllPermissions(subject)
 
 	return ctx.JSON(DeviceResponse(device))
@@ -391,6 +426,10 @@ func (c *DeviceController) Update(ctx *fiber.Ctx) error {
 		return err
 	}
 
+	if inertia.IsInertiaRequest(ctx) {
+		return c.InertiaRedirect(ctx, fmt.Sprintf("/devices/%s/show", device.PublicID))
+	}
+
 	return ctx.JSON(DeviceResponse(device))
 }
 
@@ -450,6 +489,111 @@ func (c *DeviceController) UpdateStatus(ctx *fiber.Ctx) error {
 	}
 
 	return ctx.JSON(DeviceResponse(device))
+}
+
+// Connect godoc
+// @Summary      Connect device (session-scoped)
+// @Description  Triggers a connection attempt for the device on behalf of the
+// @Description  authenticated account/apikey owner, starting the pairing
+// @Description  process (QR code generation for WhatsApp) so the UI can poll
+// @Description  GET /api/v1/device/{id} to observe device.qr_code and
+// @Description  device.status updates as they happen.
+// @Tags         Device
+// @Produce      json
+// @Param        id  path  string true "ID"
+// @Success      200 {object} DeviceResponse
+// @Security     Authorization
+// @Router       /api/v1/device/{id}/connect [post]
+func (c *DeviceController) Connect(ctx *fiber.Ctx) error {
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
+
+	subject, err := c.GetSubject(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrUnauthorized
+	}
+	ownerID, err := c.GetOwnerID(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
+
+	device, err := c.deviceService.GetDeviceByPublicIDForUser(ctx.Context(), id, ownerID)
+	if err != nil {
+		return c.OwnerLookupError(err)
+	}
+
+	gate := satpam.New(&policies.CanUpdateDevice{}).AddResource("device", device)
+	gate.AuthorizeAllPermissions(subject)
+
+	if err := c.gatewayService.Connect(ctx.Context(), device, &gateway.ConnectRequest{
+		Immediate: true,
+	}); err != nil {
+		return err
+	}
+
+	return ctx.JSON(DeviceResponse(device))
+}
+
+// SendTestMessage godoc
+// @Summary      Send a test message from the dashboard
+// @Description  Sends a text message using this device, for testing pairing/connectivity from the UI. Requires the device to be connected.
+// @Tags         Device
+// @Accept       json
+// @Produce      json
+// @Param        id  path  string true "ID"
+// @Param        payload  body  DeviceSendTestMessageRequest true "Body"
+// @Success      200 {object} gateway.SendResponse
+// @Security     Authorization
+// @Router       /api/v1/device/{id}/send-test-message [post]
+func (c *DeviceController) SendTestMessage(ctx *fiber.Ctx) error {
+	id, err := c.PublicIDParam(ctx)
+	if err != nil {
+		return err
+	}
+
+	subject, err := c.GetSubject(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrUnauthorized
+	}
+	ownerID, err := c.GetOwnerID(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
+
+	device, err := c.deviceService.GetDeviceByPublicIDForUser(ctx.Context(), id, ownerID)
+	if err != nil {
+		return c.OwnerLookupError(err)
+	}
+
+	gate := satpam.New(&policies.CanUpdateDevice{}).AddResource("device", device)
+	gate.AuthorizeAllPermissions(subject)
+
+	if device.Status != devicemodule.DeviceStatusConnected {
+		return fiber.NewError(fiber.StatusUnprocessableEntity, "Device is not connected yet")
+	}
+
+	var payload DeviceSendTestMessageRequest
+	if err := c.BodyParserValidate(ctx, &payload); err != nil {
+		return err
+	}
+
+	response, err := c.gatewayService.SendText(ctx.Context(), device, &gateway.SendTextRequest{
+		Phone: payload.Phone,
+		Body:  payload.Body,
+	})
+	if err != nil {
+		return err
+	}
+
+	return ctx.JSON(response)
 }
 
 // Destroy godoc

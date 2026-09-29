@@ -4,7 +4,7 @@ package auth
 import (
 	"encoding/json"
 	"sapasora/internal/app/http/controllers"
-	"sapasora/internal/modules/account"
+	accountpkg "sapasora/internal/modules/account"
 	"sapasora/internal/modules/role"
 	"sapasora/platform/support/hash"
 	"sapasora/platform/ui/inertia"
@@ -15,7 +15,7 @@ import (
 type AuthController struct {
 	*controllers.Controller
 
-	accountService account.AccountService
+	accountService accountpkg.AccountService
 	roleService    role.RoleService
 }
 
@@ -23,7 +23,7 @@ type AuthController struct {
 // @wired:provide
 func NewAuthController(
 	controller *controllers.Controller,
-	accountService account.AccountService,
+	accountService accountpkg.AccountService,
 	roleService role.RoleService,
 ) *AuthController {
 	return &AuthController{
@@ -64,7 +64,15 @@ func (c *AuthController) Login(ctx *fiber.Ctx) error {
 		return err
 	}
 
-	accountMarshal, err := json.Marshal(account)
+	// account.Account.ID is tagged json:"-" so it never leaks into API
+	// responses. The session store, however, must retain it (the app relies
+	// on it for every owner-scoped mutation via Controller.GetOwnerID), so it
+	// is round-tripped through a dedicated session-only shape instead of the
+	// public-facing struct.
+	accountMarshal, err := json.Marshal(accountpkg.ToSession(account))
+	// NOTE: `account` here is the local *accountpkg.Account variable from
+	// GetAccountByUsername above, not the package (imported as accountpkg to
+	// avoid this exact shadowing issue).
 	if err != nil {
 		return err
 	}

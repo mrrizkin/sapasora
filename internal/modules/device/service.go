@@ -27,6 +27,15 @@ func (s *DeviceServiceImpl) ListDevice(
 	return s.repo.ListDevice(ctx, search, page, limit)
 }
 
+func (s *DeviceServiceImpl) ListDeviceForUser(
+	ctx context.Context,
+	userID uint,
+	search string,
+	page, limit int,
+) (*Pagination[*Device], error) {
+	return s.repo.ListDeviceForUser(ctx, userID, search, page, limit)
+}
+
 func (s *DeviceServiceImpl) CreateDevice(ctx context.Context, device *Device) error {
 	return s.repo.CreateDevice(ctx, device)
 }

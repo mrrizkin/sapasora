@@ -3,6 +3,7 @@ package routes
 import (
 	"sapasora/internal/app/http/controllers"
 	"sapasora/internal/app/http/controllers/account"
+	"sapasora/internal/app/http/controllers/apikey"
 	"sapasora/internal/app/http/controllers/auth"
 	"sapasora/internal/app/http/controllers/dashboard"
 	"sapasora/internal/app/http/controllers/device"
@@ -30,6 +31,7 @@ func WebRouter(
 	dashboardController *dashboard.DashboardController,
 	deviceController *device.DeviceController,
 	roleController *role.RoleController,
+	apikeyController *apikey.APIKeyController,
 	welcomeController *controllers.WelcomeController,
 ) server.Router {
 	return server.NewRouter("/", func(router fiber.Router) {
@@ -45,6 +47,13 @@ func WebRouter(
 			device.Get("/create", deviceController.Create).Name("create")
 			device.Get("/:id/show", deviceController.Show).Name("show")
 			device.Get("/:id/edit", deviceController.Edit).Name("edit")
+
+			users := r.Group("/users", protected.Handle).Name("user.")
+			users.Get("/", accountController.Index).Name("index")
+			users.Get("/create", accountController.Create).Name("create")
+
+			apikeys := r.Group("/api-keys", protected.Handle).Name("apikey.")
+			apikeys.Get("/", apikeyController.Index).Name("index")
 
 			auth := r.Group("/auth").Name("auth.")
 			auth.Get("/", authController.Index).Name("index")

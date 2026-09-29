@@ -54,6 +54,35 @@ func (r *APIKeyRepositoryImpl) ListAPIKey(
 	}, q.Error
 }
 
+func (r *APIKeyRepositoryImpl) ListAPIKeyForUser(
+	ctx context.Context,
+	userID uint,
+	page, limit int,
+) (*Pagination[*APIKey], error) {
+	qb := r.db.WithContext(ctx).
+		Model(&APIKey{}).
+		Where("user_id = ?", userID)
+
+	var count int64
+	total := qb.Count(&count)
+	if total.Error != nil {
+		return nil, total.Error
+	}
+
+	var result []*APIKey
+	q := qb.Offset((page - 1) * limit).Limit(limit).Find(&result)
+	if q.Error != nil {
+		return nil, q.Error
+	}
+
+	return &Pagination[*APIKey]{
+		Page:  page,
+		Limit: limit,
+		Total: count,
+		Data:  result,
+	}, nil
+}
+
 func (r *APIKeyRepositoryImpl) CreateAPIKey(ctx context.Context, apikey *APIKey) error {
 	if err := apikey.Valid(); err != nil {
 		return err

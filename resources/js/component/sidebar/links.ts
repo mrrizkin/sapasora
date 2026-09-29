@@ -13,49 +13,19 @@ export const links = [
       to: '/devices',
       icon: 'i-lucide-smartphone',
     },
-    {
-      label: 'Phone book',
-      to: '/phonebook',
-      icon: 'i-lucide-book-user',
-    },
-    {
-      label: 'Message History',
-      to: '/messages',
-      icon: 'i-lucide-message-square',
-    },
-    {
-      label: 'Send',
-      to: '/send',
-      icon: 'i-lucide-send',
-    },
-    {
-      label: 'Templates',
-      to: '/templates',
-      icon: 'i-lucide-book-dashed',
-    },
-    {
-      label: 'Recurring',
-      to: '/recurring',
-      icon: 'i-lucide-calendar-sync',
-    },
-    {
-      label: 'AutoReply',
-      to: '/autoresponder',
-      icon: 'i-lucide-reply-all',
-    },
   ],
 
   // bottom sidebar menu
   [
     {
-      label: 'Admins',
-      to: '/admins',
+      label: 'Users',
+      to: '/users',
       icon: 'i-lucide-user-star',
     },
     {
-      label: 'Documentation',
-      to: '/documentation',
-      icon: 'i-lucide-book-open',
+      label: 'API Keys',
+      to: '/api-keys',
+      icon: 'i-lucide-key-round',
     },
   ],
 ] satisfies NavigationMenuItem[][];

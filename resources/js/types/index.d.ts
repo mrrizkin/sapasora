@@ -13,6 +13,23 @@ export interface User {
   username: string;
 }
 
+export interface Role {
+  id: string;
+  created_at: Date;
+  updated_at: Date;
+  name: string;
+  description: string;
+}
+
+export interface Account {
+  id: string;
+  created_at: Date;
+  updated_at: Date;
+  name: string;
+  username: string;
+  role?: Role;
+}
+
 export interface Device {
   id: string;
   created_at: Date;
@@ -26,4 +43,23 @@ export interface Device {
   auto_connect: boolean;
   events: string;
   user: User;
+}
+
+export interface DeviceToken {
+  id: string;
+  created_at: Date;
+  updated_at: Date;
+  token: string;
+  status: string;
+  user?: User;
+}
+
+export interface APIKey {
+  id: string;
+  created_at: Date;
+  updated_at: Date;
+  name: string;
+  key: string;
+  status: string;
+  user?: User;
 }

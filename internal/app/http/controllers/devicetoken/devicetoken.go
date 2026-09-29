@@ -36,11 +36,14 @@ func NewDeviceTokenController(
 
 // List godoc
 // @Summary      List devicetoken
-// @Description  List devicetoken
+// @Description  List devicetoken. If device_id is provided, results are
+// @Description  scoped to tokens belonging to that device (and the caller
+// @Description  must own the device).
 // @Tags         DeviceToken
 // @Produce      json
 // @Param        page    query  int    false "Page"
 // @Param        limit   query  int    false "Limit"
+// @Param        device_id query string false "Device public ID"
 // @Success      200 {object} DeviceTokenListResponse
 // @Security     Authorization
 // @Router       /api/v1/devicetoken [get]
@@ -62,7 +65,36 @@ func (c *DeviceTokenController) List(ctx *fiber.Ctx) error {
 	page := params.Page
 	limit := params.Limit
 
-	devicetokenList, err := c.devicetokenService.ListDeviceToken(ctx.Context(), page, limit)
+	if deviceID := ctx.Query("device_id"); deviceID != "" {
+		ownerID, err := c.GetOwnerID(ctx, "apikey", "account")
+		if err != nil {
+			return err
+		}
+
+		device, err := c.deviceService.GetDeviceByPublicIDForUser(ctx.Context(), deviceID, ownerID)
+		if err != nil {
+			return c.OwnerLookupError(err)
+		}
+
+		tokens, err := c.devicetokenService.ListDeviceTokensByDeviceID(ctx.Context(), device.ID)
+		if err != nil {
+			return err
+		}
+
+		return ctx.JSON(DeviceTokenListResponse(&devicetoken.Pagination[*devicetoken.DeviceToken]{
+			Page:  1,
+			Limit: len(tokens),
+			Total: int64(len(tokens)),
+			Data:  tokens,
+		}))
+	}
+
+	ownerID, err := c.GetOwnerID(ctx, "apikey", "account")
+	if err != nil {
+		return err
+	}
+
+	devicetokenList, err := c.devicetokenService.ListDeviceTokenForUser(ctx.Context(), ownerID, page, limit)
 	if err != nil {
 		return err
 	}

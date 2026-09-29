@@ -90,3 +90,6 @@ components.d.ts
 
 # Telegram database library
 .tdlib/*
+
+# Playwright CLI test artifacts (screenshots/snapshots from manual QA)
+.playwright-cli/

@@ -25,10 +25,10 @@ func DefaultCSP() string {
 	return NewCSPBuilder().
 		DefaultSrc("'self'").
 		ScriptSrc("'self'", "'unsafe-inline'").
-		StyleSrc("'self'", "'unsafe-inline'").
+		StyleSrc("'self'", "'unsafe-inline'", "https://fonts.bunny.net").
 		ImgSrc("'self'", "data:", "blob:").
-		FontSrc("'self'", "data:").
-		ConnectSrc("'self'", "ws:", "wss:").
+		FontSrc("'self'", "data:", "https://fonts.bunny.net").
+		ConnectSrc("'self'", "ws:", "wss:", "https://api.iconify.design", "https://api.simplesvg.com", "https://api.unisvg.com").
 		MediaSrc("'self'", "blob:").
 		FrameSrc("'self'").
 		ObjectSrc("'none'").

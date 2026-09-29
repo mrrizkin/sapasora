@@ -6,6 +6,11 @@ import (
 
 type DeviceTokenService interface {
 	ListDeviceToken(ctx context.Context, page, limit int) (*Pagination[*DeviceToken], error)
+	// ListDeviceTokenForUser scopes the listing to tokens owned by userID.
+	// Callers listing tokens on behalf of a specific account/apikey subject
+	// must use this instead of ListDeviceToken, which returns every token in
+	// the system regardless of owner.
+	ListDeviceTokenForUser(ctx context.Context, userID uint, page, limit int) (*Pagination[*DeviceToken], error)
 	CreateDeviceToken(ctx context.Context, devicetoken *DeviceToken) error
 	GetDeviceToken(ctx context.Context, id int) (*DeviceToken, error)
 	GetDeviceTokenByPublicID(ctx context.Context, publicID string) (*DeviceToken, error)
@@ -19,6 +24,7 @@ type DeviceTokenService interface {
 
 type DeviceTokenRepository interface {
 	ListDeviceToken(ctx context.Context, page, limit int) (*Pagination[*DeviceToken], error)
+	ListDeviceTokenForUser(ctx context.Context, userID uint, page, limit int) (*Pagination[*DeviceToken], error)
 	CreateDeviceToken(ctx context.Context, devicetoken *DeviceToken) error
 	GetDeviceToken(ctx context.Context, id int) (*DeviceToken, error)
 	GetDeviceTokenByPublicID(ctx context.Context, publicID string) (*DeviceToken, error)

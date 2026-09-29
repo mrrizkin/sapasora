@@ -16,6 +16,14 @@ func NewDeviceTokenService(repo DeviceTokenRepository) DeviceTokenService {
 	}
 }
 
+func (s *DeviceTokenServiceImpl) ListDeviceTokenForUser(
+	ctx context.Context,
+	userID uint,
+	page, limit int,
+) (*Pagination[*DeviceToken], error) {
+	return s.repo.ListDeviceTokenForUser(ctx, userID, page, limit)
+}
+
 func (s *DeviceTokenServiceImpl) ListDeviceToken(
 	ctx context.Context,
 	page, limit int,

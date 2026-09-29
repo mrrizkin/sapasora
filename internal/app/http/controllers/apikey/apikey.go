@@ -30,6 +30,33 @@ func NewAPIKeyController(
 	}
 }
 
+// Index show the API keys management page
+func (c *APIKeyController) Index(ctx *fiber.Ctx) error {
+	gate := satpam.New(&policies.CanListAPIKey{})
+	subject, err := c.GetSubject(ctx, "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrForbidden
+	}
+	gate.AuthorizeAllPermissions(subject)
+
+	ownerID, err := c.GetOwnerID(ctx, "account")
+	if err != nil {
+		return err
+	}
+
+	apikeyList, err := c.apikeyService.ListAPIKeyForUser(ctx.Context(), ownerID, 1, 100)
+	if err != nil {
+		return err
+	}
+
+	return c.Inertia(ctx, "apikey/index", fiber.Map{
+		"apikeys": APIKeyListResponse(apikeyList),
+	})
+}
+
 // List godoc
 // @Summary      List apikey
 // @Description  List apikey
@@ -52,6 +79,11 @@ func (c *APIKeyController) List(ctx *fiber.Ctx) error {
 
 	gate.AuthorizeAllPermissions(subject)
 
+	ownerID, err := c.GetOwnerID(ctx, "account")
+	if err != nil {
+		return err
+	}
+
 	params, err := c.ParseListQuery(ctx)
 	if err != nil {
 		return err
@@ -59,7 +91,7 @@ func (c *APIKeyController) List(ctx *fiber.Ctx) error {
 	page := params.Page
 	limit := params.Limit
 
-	apikeyList, err := c.apikeyService.ListAPIKey(ctx.Context(), page, limit)
+	apikeyList, err := c.apikeyService.ListAPIKeyForUser(ctx.Context(), ownerID, page, limit)
 	if err != nil {
 		return err
 	}
@@ -138,7 +170,7 @@ func (c *APIKeyController) Store(ctx *fiber.Ctx) error {
 		PublicID: hash.NanoID(),
 		Name:     payload.Name,
 		Key: fmt.Sprintf(
-			"sk-dak-%s",
+			"sk-sak-%s",
 			hash.GenerateNanoID(
 				"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
 				42,

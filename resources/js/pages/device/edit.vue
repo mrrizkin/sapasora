@@ -22,25 +22,25 @@ const toast = useToast();
 
 // Submit handler
 async function onSubmit(event: FormSubmitEvent<DeviceFormSchema>) {
-  // Use Inertia to submit
+  // Use Inertia to submit a PUT to the actual update endpoint.
   inertiaForm
     .transform(() => event.data)
-    .post(DeviceController.Edit.url(props.device?.id || '0'), {
+    .put(DeviceController.Update.url(props.device?.id || '0'), {
       preserveScroll: true,
       onSuccess: () => {
         toast.add({
           title: 'Success',
-          description: 'Device created successfully',
+          description: 'Device updated successfully',
           icon: 'i-lucide-check',
-          color: 'green',
+          color: 'success',
         });
       },
       onError: () => {
         toast.add({
           title: 'Error',
-          description: 'Failed to create device',
+          description: 'Failed to update device',
           icon: 'i-lucide-x',
-          color: 'red',
+          color: 'error',
         });
       },
     });

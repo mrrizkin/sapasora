@@ -105,7 +105,26 @@ func (c *Controller) View(ctx *fiber.Ctx, component templ.Component) error {
 }
 
 func (c *Controller) Inertia(ctx *fiber.Ctx, component string, props ...fiber.Map) error {
-	return c.inertia.Render(ctx, component, props...)
+	// gonertia.Render only consumes the first Props map in the variadic slice
+	// (see firstOr[Props](props, nil) in gonertia's response.go), so any
+	// additional per-request data (like the authenticated user) must be
+	// merged into a single map rather than appended as a separate element.
+	merged := fiber.Map{}
+	if acc, ok := ctx.Locals("account").(*account.Account); ok && acc != nil {
+		merged["auth"] = fiber.Map{
+			"user": fiber.Map{
+				"id":       acc.PublicID,
+				"name":     acc.Name,
+				"username": acc.Username,
+			},
+		}
+	}
+	for _, p := range props {
+		for k, v := range p {
+			merged[k] = v
+		}
+	}
+	return c.inertia.Render(ctx, component, merged)
 }
 
 func (c *Controller) InertiaRedirect(ctx *fiber.Ctx, url string, status ...int) error {

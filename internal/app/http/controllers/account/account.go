@@ -8,6 +8,7 @@ import (
 	"sapasora/internal/modules/role"
 	"sapasora/platform/satpam"
 	"sapasora/platform/support/hash"
+	"sapasora/platform/ui/inertia"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -31,6 +32,62 @@ func NewAccountController(
 		accountService: accountService,
 		roleService:    roleService,
 	}
+}
+
+// Index show the users list page
+func (c *AccountController) Index(ctx *fiber.Ctx) error {
+	gate := satpam.New(&policies.CanListAccount{})
+	subject, err := c.GetSubject(ctx, "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrForbidden
+	}
+	gate.AuthorizeAllPermissions(subject)
+
+	params, err := c.ParseListQuery(ctx)
+	if err != nil {
+		return err
+	}
+
+	userList, err := c.accountService.ListAccount(ctx.Context(), params.Search, params.Page, params.Limit)
+	if err != nil {
+		return err
+	}
+
+	return c.Inertia(ctx, "user/index", fiber.Map{
+		"users": AccountListResponse(userList),
+		"filters": fiber.Map{
+			"search": params.Search,
+		},
+		"pagination": fiber.Map{
+			"pageIndex": params.Page - 1,
+			"pageSize":  params.Limit,
+		},
+	})
+}
+
+// Create show the form to create a new user
+func (c *AccountController) Create(ctx *fiber.Ctx) error {
+	gate := satpam.New(&policies.CanStoreAccount{})
+	subject, err := c.GetSubject(ctx, "account")
+	if err != nil {
+		return err
+	}
+	if subject == nil {
+		return fiber.ErrForbidden
+	}
+	gate.AuthorizeAllPermissions(subject)
+
+	roleList, err := c.roleService.ListRole(ctx.Context(), "", 1, 100)
+	if err != nil {
+		return err
+	}
+
+	return c.Inertia(ctx, "user/create", fiber.Map{
+		"roles": roleList.Data,
+	})
 }
 
 // List godoc
@@ -151,6 +208,10 @@ func (c *AccountController) Store(ctx *fiber.Ctx) error {
 
 	if err := c.accountService.CreateAccount(ctx.Context(), &account); err != nil {
 		return err
+	}
+
+	if inertia.IsInertiaRequest(ctx) {
+		return c.InertiaRedirect(ctx, "/users")
 	}
 
 	return ctx.JSON(AccountResponse(&account))

@@ -36,3 +36,8 @@ type DeviceUpdateRequest struct {
 type DeviceStatusRequest struct {
 	Status device.DeviceStatus `json:"status" validate:"oneof=0 1 2 3"`
 } // @name DeviceController.DeviceStatusRequest
+
+type DeviceSendTestMessageRequest struct {
+	Phone string `json:"phone" validate:"required,max=255"`
+	Body  string `json:"body" validate:"required,max=4096"`
+} // @name DeviceController.DeviceSendTestMessageRequest

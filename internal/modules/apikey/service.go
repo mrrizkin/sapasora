@@ -20,6 +20,14 @@ func (s *APIKeyServiceImpl) ListAPIKey(ctx context.Context, page, limit int) (*P
 	return s.repo.ListAPIKey(ctx, page, limit)
 }
 
+func (s *APIKeyServiceImpl) ListAPIKeyForUser(
+	ctx context.Context,
+	userID uint,
+	page, limit int,
+) (*Pagination[*APIKey], error) {
+	return s.repo.ListAPIKeyForUser(ctx, userID, page, limit)
+}
+
 func (s *APIKeyServiceImpl) CreateAPIKey(ctx context.Context, apikey *APIKey) error {
 	return s.repo.CreateAPIKey(ctx, apikey)
 }

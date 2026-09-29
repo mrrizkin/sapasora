@@ -6,6 +6,11 @@ import (
 
 type DeviceService interface {
 	ListDevice(ctx context.Context, search string, page, limit int) (*Pagination[*Device], error)
+	// ListDeviceForUser scopes the listing to devices owned by userID. Every
+	// caller that lists devices on behalf of a specific account/apikey subject
+	// (dashboard index, API list) must use this instead of ListDevice, which
+	// returns every device in the system regardless of owner.
+	ListDeviceForUser(ctx context.Context, userID uint, search string, page, limit int) (*Pagination[*Device], error)
 	CreateDevice(ctx context.Context, device *Device) error
 	GetDevice(ctx context.Context, id int) (*Device, error)
 	GetDeviceByPublicID(ctx context.Context, publicID string) (*Device, error)
@@ -48,6 +53,7 @@ type DeletedDeviceOwnerScopedService interface {
 
 type DeviceRepository interface {
 	ListDevice(ctx context.Context, search string, page, limit int) (*Pagination[*Device], error)
+	ListDeviceForUser(ctx context.Context, userID uint, search string, page, limit int) (*Pagination[*Device], error)
 	CreateDevice(ctx context.Context, device *Device) error
 	GetDevice(ctx context.Context, id int) (*Device, error)
 	GetDeviceByPublicID(ctx context.Context, publicID string) (*Device, error)

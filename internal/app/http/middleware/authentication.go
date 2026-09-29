@@ -61,7 +61,7 @@ func (m *AuthenticationMiddleware) Handle(c *fiber.Ctx) error {
 			return c.Next()
 		}
 
-		if strings.HasPrefix(apiKey, "sk-dak-") { // secret key sapasora access key
+		if strings.HasPrefix(apiKey, "sk-sak-") { // secret key sapasora access key
 			key, err := m.apikeyService.GetAPIKeyByKey(c.Context(), apiKey)
 			if err != nil {
 				// Never include the supplied credential or an error that may
@@ -83,9 +83,14 @@ func (m *AuthenticationMiddleware) Handle(c *fiber.Ctx) error {
 
 	if session, err := m.session.Get(c); err == nil {
 		if accountJSON, ok := session.Get("account").(string); ok {
-			var account account.Account
-			if err := json.Unmarshal([]byte(accountJSON), &account); err == nil {
-				c.Locals("account", &account)
+			// The session stores account.SessionAccount, not account.Account
+			// directly, because account.Account.ID is tagged json:"-" (to keep
+			// raw DB IDs out of API responses) and would silently unmarshal as
+			// zero here otherwise — breaking every owner-scoped mutation that
+			// relies on Controller.GetOwnerID for session-authenticated users.
+			var sessionAcc account.SessionAccount
+			if err := json.Unmarshal([]byte(accountJSON), &sessionAcc); err == nil {
+				c.Locals("account", account.FromSession(sessionAcc))
 				return c.Next()
 			}
 		}

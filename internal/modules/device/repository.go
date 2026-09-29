@@ -63,6 +63,48 @@ func (r *DeviceRepositoryImpl) ListDevice(
 	}, nil
 }
 
+func (r *DeviceRepositoryImpl) ListDeviceForUser(
+	ctx context.Context,
+	userID uint,
+	search string,
+	page, limit int,
+) (*Pagination[*Device], error) {
+	wb := sql.NewLogicBuilder()
+	wb.And("user_id = ?", userID)
+
+	search = strings.TrimSpace(search)
+	if search != "" {
+		wb.And("LOWER(name) LIKE ?", "%"+strings.ToLower(search)+"%")
+	}
+
+	qb := r.db.WithContext(ctx).
+		Model(&Device{})
+
+	where, args := wb.GetLogic()
+	if where != "" {
+		qb = qb.Where(where, args...)
+	}
+
+	var count int64
+	total := qb.Count(&count)
+	if total.Error != nil {
+		return nil, total.Error
+	}
+
+	var devices []*Device
+	q := qb.Offset(page - 1).Limit(limit).Find(&devices)
+	if q.Error != nil {
+		return nil, q.Error
+	}
+
+	return &Pagination[*Device]{
+		Page:  page,
+		Limit: limit,
+		Total: count,
+		Data:  devices,
+	}, nil
+}
+
 func (r *DeviceRepositoryImpl) CreateDevice(ctx context.Context, device *Device) error {
 	if err := device.Valid(); err != nil {
 		return err

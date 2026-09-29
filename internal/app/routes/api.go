@@ -61,6 +61,14 @@ func APIRouter(
 		device.Post("/", deviceController.Store).Name("store")
 		device.Put("/:id", deviceController.Update).Name("update")
 		device.Put("/:id/status", deviceController.UpdateStatus).Name("update_status")
+		// Session/apikey-scoped connect trigger, used by the dashboard UI to kick
+		// off pairing (e.g. WhatsApp QR generation) without requiring a device
+		// token, since /gateway/connect is device-token-only.
+		device.Post("/:id/connect", deviceController.Connect).Name("connect")
+		// Session/apikey-scoped test-send, used by the dashboard UI to verify a
+		// connected device can actually deliver messages, without requiring a
+		// device token.
+		device.Post("/:id/send-test-message", deviceController.SendTestMessage).Name("send_test_message")
 		device.Delete("/:id", deviceController.Destroy).Name("destroy")
 
 		// DeviceToken

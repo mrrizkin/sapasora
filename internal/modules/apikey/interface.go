@@ -6,6 +6,11 @@ import (
 
 type APIKeyService interface {
 	ListAPIKey(ctx context.Context, page, limit int) (*Pagination[*APIKey], error)
+	// ListAPIKeyForUser scopes the listing to API keys owned by userID.
+	// Callers listing keys on behalf of a specific account subject must use
+	// this instead of ListAPIKey, which returns every key in the system
+	// regardless of owner.
+	ListAPIKeyForUser(ctx context.Context, userID uint, page, limit int) (*Pagination[*APIKey], error)
 	CreateAPIKey(ctx context.Context, apikey *APIKey) error
 	GetAPIKey(ctx context.Context, id int) (*APIKey, error)
 	GetAPIKeyByPublicID(ctx context.Context, publicID string) (*APIKey, error)
@@ -17,6 +22,7 @@ type APIKeyService interface {
 
 type APIKeyRepository interface {
 	ListAPIKey(ctx context.Context, page, limit int) (*Pagination[*APIKey], error)
+	ListAPIKeyForUser(ctx context.Context, userID uint, page, limit int) (*Pagination[*APIKey], error)
 	CreateAPIKey(ctx context.Context, apikey *APIKey) error
 	GetAPIKey(ctx context.Context, id int) (*APIKey, error)
 	GetAPIKeyByPublicID(ctx context.Context, publicID string) (*APIKey, error)

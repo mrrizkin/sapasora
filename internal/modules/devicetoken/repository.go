@@ -46,6 +46,35 @@ func (r *DeviceTokenRepositoryImpl) ListDeviceToken(
 	}, nil
 }
 
+func (r *DeviceTokenRepositoryImpl) ListDeviceTokenForUser(
+	ctx context.Context,
+	userID uint,
+	page, limit int,
+) (*Pagination[*DeviceToken], error) {
+	qb := r.db.WithContext(ctx).
+		Model(&DeviceToken{}).
+		Where("user_id = ?", userID)
+
+	var count int64
+	total := qb.Count(&count)
+	if total.Error != nil {
+		return nil, total.Error
+	}
+
+	var devicetokens []*DeviceToken
+	q := qb.Offset(page - 1).Limit(limit).Find(&devicetokens)
+	if q.Error != nil {
+		return nil, q.Error
+	}
+
+	return &Pagination[*DeviceToken]{
+		Page:  page,
+		Limit: limit,
+		Total: count,
+		Data:  devicetokens,
+	}, nil
+}
+
 func (r *DeviceTokenRepositoryImpl) CreateDeviceToken(
 	ctx context.Context,
 	devicetoken *DeviceToken,

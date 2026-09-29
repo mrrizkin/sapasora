@@ -327,7 +327,7 @@ func (m model) createAPIKey() (model, tea.Cmd) {
 						return
 					}
 
-					generatedKey = "sk-dak-" + hash.GenerateNanoID(
+					generatedKey = "sk-sak-" + hash.GenerateNanoID(
 						"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
 						42,
 					)

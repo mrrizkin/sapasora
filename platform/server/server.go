@@ -74,6 +74,18 @@ func NewServer(lc fx.Lifecycle, in ServerIn) *Server {
 		PermissionPolicy:      "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
 	}))
 
+	// The generated OpenAPI spec (public/docs/v3/*) documents every internal
+	// endpoint, including admin/account management routes. The Swagger UI
+	// itself is already gated to non-production (see platform/swagger), but
+	// the raw JSON/YAML files were still reachable unauthenticated through
+	// this static file server. Block that path outright in production so the
+	// API surface isn't disclosed to anonymous callers.
+	if in.Config.GetString("app.env", "development") == "production" {
+		app.Use("/docs", func(c *fiber.Ctx) error {
+			return fiber.ErrNotFound
+		})
+	}
+
 	app.Static("/", "public")
 	app.Use(fiberzerolog.New(fiberzerolog.Config{
 		Logger: in.Logger.GetLogger(),
