@@ -19,7 +19,7 @@ This is a simple starter template for a GoFiber + Inertia.js + Vite application.
 3. Run `pnpm dev` to start the development server
 4. Open http://localhost:3000 to view the application
 
-## Docker
+## Docker (development / build from source)
 
 Docker akan membangun TDLib native, frontend, dan aplikasi Go secara otomatis.
 
@@ -37,6 +37,28 @@ Untuk menghentikan container:
 ```bash
 docker compose down
 ```
+
+## Production deploy (pakai image yang sudah di-build CI)
+
+Setiap push ke `main` otomatis di-build dan di-publish oleh GitHub Actions ke
+GitHub Container Registry sebagai `ghcr.io/mrrizkin/sapasora`, dengan tag versi
+bergaya CalVer `vYYYY.WW.PATCH` (mis. `v2026.39.0`) sekaligus tag `latest`.
+
+Di server, cukup pull image tersebut tanpa perlu build TDLib/Go/Vite sama sekali:
+
+```bash
+cp .env.example .env
+# isi .env sesuai kebutuhan production (lihat docs/PRODUCTION_READINESS.md)
+
+# opsional: pin ke versi tertentu, default-nya "latest"
+echo "IMAGE_TAG=v2026.39.0" >> .env
+
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Untuk update ke versi baru, ganti `IMAGE_TAG` di `.env` lalu ulangi `pull` + `up -d`.
+Lihat tag yang tersedia di halaman Packages repo ini di GitHub.
 
 ## License
 
