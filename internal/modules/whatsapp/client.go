@@ -144,14 +144,15 @@ func (c *Client) EventHandler(rawEvt any) {
 	case *events.PairSuccess:
 		c.wMeow.log.Info("QR Pair Success", "device", c.DeviceInfo.Name)
 
-		jid := evt.ID
-		err = c.wMeow.deviceService.SetDeviceJIDByPublicID(context.Background(), c.DeviceInfo.ID, jid.String())
-		if err != nil {
-			c.wMeow.log.Error("Failed to set user jid", "device", c.DeviceInfo.Name, "error", err)
+		jid := evt.ID.String()
+		if err := syncConnectedDeviceIdentity(context.Background(), c.wMeow.deviceService, c.DeviceInfo.ID, jid); err != nil {
+			c.wMeow.log.Error("Failed to persist paired WhatsApp identity/status", "device", c.DeviceInfo.Name, "error", err)
 			return
 		}
-
-		c.DeviceInfo.Jid = nihil.String(jid.String())
+		if err := c.wMeow.deviceService.SetDeviceQRCodeByPublicID(context.Background(), c.DeviceInfo.ID, ""); err != nil {
+			c.wMeow.log.Error("Failed to clear QR code after pairing", "device", c.DeviceInfo.Name, "error", err)
+		}
+		c.DeviceInfo.Jid = nihil.String(jid)
 	case *events.StreamReplaced:
 		c.wMeow.log.Info("Received StreamReplaced event", "device", c.DeviceInfo.Name)
 		return

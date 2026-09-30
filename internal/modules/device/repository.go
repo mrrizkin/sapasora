@@ -236,7 +236,7 @@ func (r *DeviceRepositoryImpl) listStartupDevices(
 	err := r.db.WithContext(ctx).
 		Where("m_devices.type = ?", deviceType).
 		Where("m_devices.deleted_at IS NULL").
-		Where("m_devices.status = ?", DeviceStatusActive.String()).
+		Where("m_devices.status <> ?", DeviceStatusInactive.String()).
 		Where("m_devices.auto_connect = ?", true).
 		Where("m_devices.expired_at IS NULL OR m_devices.expired_at > ?", now).
 		Find(&devices).Error

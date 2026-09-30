@@ -58,7 +58,9 @@ type Whatsmeow struct {
 
 	lifecycleMu        sync.Mutex
 	clientWG           sync.WaitGroup
+	startupOnce        sync.Once
 	startupWG          sync.WaitGroup
+	startupCtx         context.Context
 	startupConcurrency int
 	startupSem         chan struct{}
 	stopStartup        context.CancelFunc
@@ -121,6 +123,7 @@ func NewWhatsmeow(
 
 		deviceService:      deviceService,
 		startupConcurrency: config.GetInt("provider.startup_concurrency", providerstartup.DefaultStartupConcurrency),
+		startupCtx:         runCtx,
 		stopStartup:        stopStartup,
 		metrics:            providerstartup.NewLifecycleMetrics(),
 	}
@@ -128,11 +131,6 @@ func NewWhatsmeow(
 
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
-			w.startupWG.Add(1)
-			go func() {
-				defer w.startupWG.Done()
-				w.ConnectDevices(runCtx)
-			}()
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
@@ -143,6 +141,17 @@ func NewWhatsmeow(
 	})
 
 	return w, nil
+}
+
+// StartDevices triggers provider startup after the HTTP server is ready.
+func (w *Whatsmeow) StartDevices() {
+	w.startupOnce.Do(func() {
+		w.startupWG.Add(1)
+		go func() {
+			defer w.startupWG.Done()
+			w.ConnectDevices(w.startupCtx)
+		}()
+	})
 }
 
 // ConnectDevices to Whatsmeow Websocket on server startup if last state was connected
@@ -189,6 +198,11 @@ func (w *Whatsmeow) ConnectDevices(ctx context.Context) {
 		},
 		func(d *device.Device, err error) {
 			w.recordStartupError(d.PublicID, err)
+			if ctx.Err() == nil {
+				if statusErr := w.deviceService.SetDeviceStatusInactiveByPublicID(context.Background(), d.PublicID); statusErr != nil {
+					w.log.Error("Failed to mark device inactive after startup failure", "device", d.Name, "error", statusErr)
+				}
+			}
 		},
 	)
 }
