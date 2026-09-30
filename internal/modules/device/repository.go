@@ -195,7 +195,11 @@ func (r *DeviceRepositoryImpl) getDeviceByToken(
 			AND (mdt.expired_at IS NULL OR mdt.expired_at > ?)
 			AND mdt.user_id = m_devices.user_id`, devicetoken.DeviceTokenStatusActive.String(), now).
 		Where("m_devices.deleted_at IS NULL").
-		Where("m_devices.status = ?", DeviceStatusActive.String()).
+		Where("m_devices.status IN ?", []string{
+			DeviceStatusActive.String(),
+			DeviceStatusConnected.String(),
+			DeviceStatusDisconnected.String(),
+		}).
 		Where("mdt.token = ?", token)
 
 	if ownerID != nil {
