@@ -116,6 +116,15 @@ func (c *Client) EventHandler(rawEvt any) {
 			}
 		}
 	case *events.Connected, *events.PushNameSetting:
+		// Persist the connection state independently from PushName. On a fresh
+		// pairing WhatsApp can emit Connected before PushName is populated; an
+		// early return here leaves the Sapasora device stuck as inactive even
+		// though the websocket is already receiving messages.
+		c.wMeow.log.Info("Setting up status connection", "device", c.DeviceInfo.Name)
+		if err := c.syncDeviceIdentityAndStatus(context.Background()); err != nil {
+			c.wMeow.log.Error("Failed to persist WhatsApp identity/status", "device", c.DeviceInfo.Name, "error", err)
+		}
+
 		if len(c.WAClient.Store.PushName) == 0 {
 			return
 		}
@@ -127,11 +136,7 @@ func (c *Client) EventHandler(rawEvt any) {
 		} else {
 			c.wMeow.log.Info("Marked self as available", "device", c.DeviceInfo.Name)
 		}
-		c.wMeow.log.Info("Setting up status connection", "device", c.DeviceInfo.Name)
-		if err := c.syncDeviceIdentityAndStatus(context.Background()); err != nil {
-			c.wMeow.log.Error("Failed to persist WhatsApp identity/status", "device", c.DeviceInfo.Name, "error", err)
-			return
-		}
+		// Status and identity were persisted above, before the PushName check.
 	case *events.Disconnected:
 		if err := c.wMeow.deviceService.SetDeviceStatusDisconnectedByPublicID(context.Background(), c.DeviceInfo.ID); err != nil {
 			c.wMeow.log.Error("Failed to set user disconnected", "device", c.DeviceInfo.Name, "error", err)
