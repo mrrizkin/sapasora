@@ -72,6 +72,8 @@ app:
 ```bash
 ./scripts/extract-openapi.sh              # image :latest -> ./openapi-export
 ./scripts/extract-openapi.sh v2026.40.0    # pin ke versi tertentu
+./scripts/extract-openapi.sh latest ./openapi-export https://sapasora.mrrizkin.com
+                                           # ganti field `servers` ke domain asli
 ```
 
 Hasilnya `openapi-export/openapi.json` dan `openapi.yaml`, siap di-import ke
