@@ -123,6 +123,7 @@ type SendDocumentRequest struct {
 	Phone       string      `json:"phone"`
 	Document    string      `json:"document"`
 	FileName    string      `json:"filename"`
+	Caption     string      `json:"caption,omitempty"`
 	ID          string      `json:"id"`
 	ContextInfo ContextInfo `json:"context_info"`
 } // @name whatsapp.SendDocumentRequest

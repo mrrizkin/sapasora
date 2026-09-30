@@ -595,7 +595,7 @@ func (g *GatewayServiceImpl) SendDocument(ctx context.Context, d *device.Device,
 		if err != nil {
 			return nil, err
 		}
-		response, err := a.SendDocument(ctx, d, &whatsapp.SendDocumentRequest{Phone: payload.Phone, Document: payload.Document, FileName: payload.FileName, ID: payload.ID, ContextInfo: mapWhatsappContextInfo(payload.ContextInfo)})
+		response, err := a.SendDocument(ctx, d, &whatsapp.SendDocumentRequest{Phone: payload.Phone, Document: payload.Document, FileName: payload.FileName, Caption: payload.Caption, ID: payload.ID, ContextInfo: mapWhatsappContextInfo(payload.ContextInfo)})
 		if err != nil {
 			return nil, err
 		}

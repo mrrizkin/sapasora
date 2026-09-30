@@ -137,6 +137,7 @@ type SendDocumentRequest struct {
 	Username    string      `json:"username" validate:"required_without=Phone,max=255"`
 	Document    string      `json:"document" validate:"required"`
 	FileName    string      `json:"filename" validate:"required,max=255"`
+	Caption     string      `json:"caption,omitempty" validate:"omitempty,max=4096"`
 	ID          string      `json:"id" validate:"omitempty,max=255"`
 	ContextInfo ContextInfo `json:"context_info"`
 } // @name whatsapp.SendDocumentRequest

@@ -708,6 +708,7 @@ func (w *WhatsappServiceImpl) SendDocument(
 	msg := &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{
 		URL:           proto.String(uploaded.URL),
 		FileName:      &payload.FileName,
+		Caption:       proto.String(payload.Caption),
 		DirectPath:    proto.String(uploaded.DirectPath),
 		MediaKey:      uploaded.MediaKey,
 		Mimetype:      proto.String(http.DetectContentType(filedata)),
