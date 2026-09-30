@@ -122,7 +122,7 @@ func (w *WhatsappServiceImpl) Connect(
 	}
 
 	w.log.Info("Waiting for WhatsApp connection")
-	waitCtx, cancel := providerContext(ctx)
+	waitCtx, cancel := context.WithTimeout(ctx, providerConnectTimeout)
 	defer cancel()
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()

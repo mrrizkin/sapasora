@@ -23,6 +23,7 @@ import (
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
 	"go.uber.org/fx"
+	"google.golang.org/protobuf/proto"
 )
 
 type WhatsmeowDeviceInfo struct {
@@ -103,6 +104,10 @@ func NewWhatsmeow(
 	if err != nil {
 		return nil, err
 	}
+
+	// WhatsApp displays this value as the linked-device client name.
+	// Keep it branded as Sapasora instead of exposing the underlying library.
+	store.DeviceProps.Os = proto.String("Sapasora")
 
 	runCtx, stopStartup := context.WithCancel(context.Background())
 	w := &Whatsmeow{
@@ -309,10 +314,6 @@ func (w *Whatsmeow) startClient(
 		w.log.Warn("No store found. Creating new one", "device", deviceInfo.Name)
 		deviceStore = w.container.NewDevice()
 	}
-
-	// osName := "Sapasora"
-	// store.DeviceProps.PlatformType = waCompanionReg.DeviceProps_CHROME.Enum()
-	// store.DeviceProps.Os = &osName
 
 	whatsmeowClient := whatsmeow.NewClient(deviceStore, nil)
 

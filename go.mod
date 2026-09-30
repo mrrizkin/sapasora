@@ -39,7 +39,7 @@ require (
 	github.com/vardius/message-bus v1.1.5
 	github.com/vincent-petithory/dataurl v1.0.0
 	github.com/zelenin/go-tdlib v1.0.0-beta1.0.20250430205245-8884f54190d0
-	go.mau.fi/whatsmeow v0.0.0-20260917111002-2e338d0ee73d
+	go.mau.fi/whatsmeow v0.0.0-20260929112325-8b41cfe6d9c4
 	go.uber.org/fx v1.24.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/sync v0.23.0

@@ -13,6 +13,7 @@ import (
 
 const (
 	providerOperationTimeout = 30 * time.Second
+	providerConnectTimeout   = 90 * time.Second
 	defaultMediaUploadLimit  = 8 * 1024 * 1024
 )
 
