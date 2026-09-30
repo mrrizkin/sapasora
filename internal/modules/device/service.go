@@ -185,3 +185,16 @@ func (s *DeviceServiceImpl) SetDeviceStatusDisconnectedByPublicID(
 
 	return s.SetDeviceStatusDisconnected(ctx, device)
 }
+
+func (s *DeviceServiceImpl) SetDeviceStatusInactiveByPublicID(
+	ctx context.Context,
+	publicID string,
+) error {
+	device, err := s.repo.GetDeviceByPublicID(ctx, publicID)
+	if err != nil {
+		return err
+	}
+
+	device.Status = DeviceStatusInactive
+	return s.repo.UpdateDevice(ctx, device)
+}

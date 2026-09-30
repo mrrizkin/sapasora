@@ -29,6 +29,7 @@ type DeviceService interface {
 	SetDeviceStatusConnectedByPublicID(ctx context.Context, publicID string) error
 	SetDeviceStatusDisconnected(ctx context.Context, device *Device) error
 	SetDeviceStatusDisconnectedByPublicID(ctx context.Context, publicID string) error
+	SetDeviceStatusInactiveByPublicID(ctx context.Context, publicID string) error
 }
 
 // DeviceTokenOwnerScopedRepository is an optional extension for callers that

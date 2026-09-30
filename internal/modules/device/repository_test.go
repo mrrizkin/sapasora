@@ -219,8 +219,8 @@ func TestStartupDeviceQueriesFilterEligibility(t *testing.T) {
 
 	whatsappDevices, err := repository.GetAllWhatsappDevices(context.Background())
 	require.NoError(t, err)
-	require.Len(t, whatsappDevices, 2)
-	require.ElementsMatch(t, []uint{1, 2}, []uint{whatsappDevices[0].ID, whatsappDevices[1].ID})
+	require.Len(t, whatsappDevices, 3)
+	require.ElementsMatch(t, []uint{1, 2, 5}, []uint{whatsappDevices[0].ID, whatsappDevices[1].ID, whatsappDevices[2].ID})
 
 	telegramDevices, err := repository.GetAllTelegramDevices(context.Background())
 	require.NoError(t, err)

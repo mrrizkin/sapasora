@@ -49,19 +49,18 @@ func NewController(
 
 func (c *Controller) GetSubject(ctx *fiber.Ctx, subjects ...string) (any, error) {
 	for _, s := range subjects {
-		switch s {
-		case "account":
-			if subject, ok := ctx.Locals(s).(*account.Account); ok {
-				return subject, nil
-			}
-		case "apikey":
-			if subject, ok := ctx.Locals(s).(*apikey.APIKey); ok {
-				return subject, nil
-			}
-		case "device":
-			if subject, ok := ctx.Locals(s).(*device.Device); ok {
-				return subject, nil
-			}
+		subject := ctx.Locals(s)
+		if subject == nil {
+			continue
+		}
+
+		switch subject.(type) {
+		case *account.Account:
+			return subject, nil
+		case *apikey.APIKey:
+			return subject, nil
+		case *device.Device:
+			return subject, nil
 		}
 	}
 	return nil, fiber.ErrForbidden

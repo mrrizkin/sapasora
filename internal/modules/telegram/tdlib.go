@@ -31,6 +31,8 @@ type TDLib struct {
 	deviceService device.DeviceService
 
 	startupMu          sync.RWMutex
+	startupOnce        sync.Once
+	startupCtx         context.Context
 	lastStartupError   error
 	startupWG          sync.WaitGroup
 	startupConcurrency int
@@ -57,17 +59,13 @@ func NewTDLib(
 
 		deviceService:      deviceService,
 		startupConcurrency: cfg.GetInt("provider.startup_concurrency", providerstartup.DefaultStartupConcurrency),
+		startupCtx:         runCtx,
 		stopStartup:        cancel,
 		metrics:            providerstartup.NewLifecycleMetrics(),
 	}
 
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
-			t.startupWG.Add(1)
-			go func() {
-				defer t.startupWG.Done()
-				t.ConnectDevices(runCtx)
-			}()
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
@@ -78,6 +76,17 @@ func NewTDLib(
 	})
 
 	return t
+}
+
+// StartDevices triggers provider startup after the HTTP server is ready.
+func (t *TDLib) StartDevices() {
+	t.startupOnce.Do(func() {
+		t.startupWG.Add(1)
+		go func() {
+			defer t.startupWG.Done()
+			t.ConnectDevices(t.startupCtx)
+		}()
+	})
 }
 
 // ConnectDevices to TDLib on server startup if last state was connected
@@ -94,6 +103,11 @@ func (t *TDLib) ConnectDevices(ctx context.Context) {
 		},
 		func(d *device.Device, err error) {
 			t.recordStartupError(d, err)
+			if ctx.Err() == nil {
+				if statusErr := t.deviceService.SetDeviceStatusInactiveByPublicID(context.Background(), d.PublicID); statusErr != nil {
+					t.log.Error("Failed to mark device inactive after startup failure", "device", d.Name, "error", statusErr)
+				}
+			}
 		},
 	)
 }
