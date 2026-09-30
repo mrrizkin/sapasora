@@ -60,6 +60,23 @@ docker compose -f docker-compose.prod.yml up -d
 Untuk update ke versi baru, ganti `IMAGE_TAG` di `.env` lalu ulangi `pull` + `up -d`.
 Lihat tag yang tersedia di halaman Packages repo ini di GitHub.
 
+## API documentation (OpenAPI)
+
+Spec OpenAPI 3.0 (JSON + YAML) di-generate otomatis saat build image (via
+`toolbox swagger`), tapi endpoint `/docs/*` sengaja diblokir saat
+`APP_ENV=production` supaya peta API tidak terbuka ke publik. Untuk mengambil
+spec-nya (misal untuk dikirim ke client yang mau implementasi API), extract
+langsung dari image yang sudah di-publish tanpa perlu build atau menjalankan
+app:
+
+```bash
+./scripts/extract-openapi.sh              # image :latest -> ./openapi-export
+./scripts/extract-openapi.sh v2026.40.0    # pin ke versi tertentu
+```
+
+Hasilnya `openapi-export/openapi.json` dan `openapi.yaml`, siap di-import ke
+Postman/Insomnia atau dirender pakai Swagger UI/Redoc.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

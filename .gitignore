@@ -93,3 +93,6 @@ components.d.ts
 
 # Playwright CLI test artifacts (screenshots/snapshots from manual QA)
 .playwright-cli/
+
+# Generated OpenAPI spec exported from a built image (see scripts/extract-openapi.sh)
+/openapi-export/
